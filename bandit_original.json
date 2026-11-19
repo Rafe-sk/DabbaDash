@@ -1,0 +1,174 @@
+{
+  "errors": [],
+  "generated_at": "2026-11-19T07:50:20Z",
+  "metrics": {
+    "/Users/rafeshaikh/Downloads/G3_DabbaDash_Orders/app.py": {
+      "CONFIDENCE.HIGH": 1,
+      "CONFIDENCE.LOW": 2,
+      "CONFIDENCE.MEDIUM": 4,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 2,
+      "SEVERITY.LOW": 1,
+      "SEVERITY.MEDIUM": 4,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 335,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "_totals": {
+      "CONFIDENCE.HIGH": 1,
+      "CONFIDENCE.LOW": 2,
+      "CONFIDENCE.MEDIUM": 4,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 2,
+      "SEVERITY.LOW": 1,
+      "SEVERITY.MEDIUM": 4,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 335,
+      "nosec": 0,
+      "skipped_tests": 0
+    }
+  },
+  "results": [
+    {
+      "code": "26 app = Flask(__name__)\n27 app.secret_key = \"dabbadash@indore\"\n28 \n",
+      "col_offset": 17,
+      "end_col_offset": 35,
+      "filename": "/Users/rafeshaikh/Downloads/G3_DabbaDash_Orders/app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 259,
+        "link": "https://cwe.mitre.org/data/definitions/259.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Possible hardcoded password: 'dabbadash@indore'",
+      "line_number": 27,
+      "line_range": [
+        27
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html",
+      "test_id": "B105",
+      "test_name": "hardcoded_password_string"
+    },
+    {
+      "code": "51 def hash_password(password):\n52     return hashlib.md5(password.encode()).hexdigest()\n53 \n",
+      "col_offset": 11,
+      "end_col_offset": 41,
+      "filename": "/Users/rafeshaikh/Downloads/G3_DabbaDash_Orders/app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 327,
+        "link": "https://cwe.mitre.org/data/definitions/327.html"
+      },
+      "issue_severity": "HIGH",
+      "issue_text": "Use of weak MD5 hash for security. Consider usedforsecurity=False",
+      "line_number": 52,
+      "line_range": [
+        52
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html",
+      "test_id": "B324",
+      "test_name": "hashlib"
+    },
+    {
+      "code": "122     \"\"\"Shared by the web login page and the API login.\"\"\"\n123     query = (\"SELECT * FROM users WHERE username = '\" + username +\n124              \"' AND password = '\" + hash_password(password) + \"'\")\n",
+      "col_offset": 13,
+      "end_col_offset": 53,
+      "filename": "/Users/rafeshaikh/Downloads/G3_DabbaDash_Orders/app.py",
+      "issue_confidence": "LOW",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 123,
+      "line_range": [
+        123
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "316         db = get_db()\n317         cur = db.execute(\"INSERT INTO users (%s) VALUES (%s)\" % (\",\".join(fields), \",\".join(\"?\" * len(fields))),\n318                          list(fields.values()))\n",
+      "col_offset": 25,
+      "end_col_offset": 61,
+      "filename": "/Users/rafeshaikh/Downloads/G3_DabbaDash_Orders/app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 317,
+      "line_range": [
+        317
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "337 def query_for_debug(data):\n338     return (\"SELECT * FROM users WHERE username = '\" + data.get(\"username\", \"\") +\n339             \"' AND password = '\" + hash_password(data.get(\"password\", \"\")) + \"'\")\n",
+      "col_offset": 12,
+      "end_col_offset": 52,
+      "filename": "/Users/rafeshaikh/Downloads/G3_DabbaDash_Orders/app.py",
+      "issue_confidence": "LOW",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 338,
+      "line_range": [
+        338
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "382             if key in ORDER_COLUMNS:\n383                 db.execute(\"UPDATE orders SET %s=? WHERE id=?\" % key, (value, order_id))\n384         db.commit()\n",
+      "col_offset": 27,
+      "end_col_offset": 62,
+      "filename": "/Users/rafeshaikh/Downloads/G3_DabbaDash_Orders/app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 383,
+      "line_range": [
+        383
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "409     init_db()\n410     app.run(host=\"127.0.0.1\", port=int(os.environ.get(\"PORT\", \"5050\")), debug=True)\n",
+      "col_offset": 4,
+      "end_col_offset": 83,
+      "filename": "/Users/rafeshaikh/Downloads/G3_DabbaDash_Orders/app.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 94,
+        "link": "https://cwe.mitre.org/data/definitions/94.html"
+      },
+      "issue_severity": "HIGH",
+      "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+      "line_number": 410,
+      "line_range": [
+        410
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b201_flask_debug_true.html",
+      "test_id": "B201",
+      "test_name": "flask_debug_true"
+    }
+  ]
+}

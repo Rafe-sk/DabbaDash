@@ -1,0 +1,49 @@
+rules:
+  - id: dabbadash-sqli-string-concat
+    message: "Potential SQL Injection detected: database query is constructed using string concatenation instead of parameterized '?' placeholders."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      owasp: "A05:2025 Injection"
+    patterns:
+      - pattern-either:
+          - pattern: $DB.execute("..." + ... + "...", ...)
+          - pattern: $DB.execute("..." + ...)
+          - pattern: $DB.execute(... + "...")
+          - pattern: |
+              $QUERY = "..." + ...
+              ...
+              $DB.execute($QUERY, ...)
+          - pattern: |
+              $QUERY = ... + "..."
+              ...
+              $DB.execute($QUERY, ...)
+          - pattern: $DB.execute(f"...", ...)
+          - pattern: |
+              $QUERY = f"..."
+              ...
+              $DB.execute($QUERY, ...)
+
+  - id: dabbadash-insecure-md5-password
+    message: "Insecure hashing: MD5 is broken and must not be used for hashing passwords."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-328: Use of Weak Hash"
+      owasp: "A04:2025 Cryptographic Failures"
+    patterns:
+      - pattern: hashlib.md5($PASS.encode(...)).hexdigest()
+
+  - id: dabbadash-unauthenticated-base64-token
+    message: "Insecure token: Authentication tokens must use cryptographic signatures (e.g. HMAC / itsdangerous / JWT), not raw Base64."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-345: Insufficient Verification of Data Authenticity"
+      owasp: "A08:2025 Software and Data Integrity Failures"
+    patterns:
+      - pattern: |
+          $RAW = "%s:%s:%s" % ($U["id"], $U["username"], $U["role"])
+          ...
+          base64.b64encode($RAW.encode()).decode()

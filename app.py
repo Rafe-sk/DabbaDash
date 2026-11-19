@@ -125,8 +125,8 @@ def verify_and_rehash_password(user, password):
         except Exception:
             return False
 
-    # Case B: Legacy MD5 (tagged # nosec B324 for Bandit: strictly used for backward-compat migration)
-    legacy_md5 = hashlib.md5(password.encode(), usedforsecurity=False).hexdigest()  # nosec B324
+    # Case B: Legacy MD5 (tagged for Bandit and Semgrep: strictly for backward-compat migration to Argon2id)
+    legacy_md5 = hashlib.md5(password.encode(), usedforsecurity=False).hexdigest()  # nosec B324 # nosemgrep: python.lang.security.audit.md5-used-as-password.md5-used-as-password
     if legacy_md5 == stored_hash:
         new_hash = ph.hash(password)
         db.execute("UPDATE users SET password=? WHERE id=?", (new_hash, user["id"]))
