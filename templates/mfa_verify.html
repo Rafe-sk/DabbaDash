@@ -8,5 +8,8 @@
   <input name="code" type="text" placeholder="123456" pattern="[0-9]{6}" maxlength="6" autofocus required>
   <button style="width:100%;">Verify</button>
 </form>
-<p class="muted" style="margin-top:15px;text-align:center;"><a href="/logout">Cancel & Return to Login</a></p>
+<p class="muted" style="margin-top:18px;font-size:13px;">
+  <a href="/mfa/enroll?reset=1" style="color:#c2410c;text-decoration:underline;">Haven't set up your app or need to scan the QR code? Click here</a>
+</p>
+<p class="muted" style="margin-top:12px;text-align:center;"><a href="/logout">Cancel & Return to Login</a></p>
 </div>{% endblock %}

@@ -426,6 +426,10 @@ def login():
 # Task 5: MFA QR Enrolment
 @app.route("/mfa/enroll", methods=["GET", "POST"])
 def mfa_enroll():
+    # Allow switching to enroll from verify (e.g. if user needs to re-scan)
+    if not session.get("mfa_enroll_uid") and session.get("mfa_verify_uid"):
+        session["mfa_enroll_uid"] = session["mfa_verify_uid"]
+
     uid = session.get("mfa_enroll_uid")
     if not uid:
         return redirect(url_for("login"))
@@ -436,11 +440,13 @@ def mfa_enroll():
         session.clear()
         return redirect(url_for("login"))
 
-    secret = user["mfa_secret"]
-    if not secret:
+    # If reset requested or no secret exists, generate a fresh secret
+    if request.args.get("reset") == "1" or not user["mfa_secret"]:
         secret = pyotp.random_base32()
-        db.execute("UPDATE users SET mfa_secret=? WHERE id=?", (secret, uid))
+        db.execute("UPDATE users SET mfa_secret=?, mfa_enabled=0 WHERE id=?", (secret, uid))
         db.commit()
+    else:
+        secret = user["mfa_secret"]
 
     totp = pyotp.TOTP(secret)
     uri = totp.provisioning_uri(name=user["username"], issuer_name="DabbaDash")
