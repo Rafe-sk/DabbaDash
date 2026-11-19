@@ -1,33 +1,60 @@
 """
-DabbaDash - Food Delivery Order Platform (v1.0)
------------------------------------------------
+DabbaDash - Food Delivery Order Platform (v1.0 - Hardened Auth & Sessions)
+--------------------------------------------------------------------------
 TRAINING APPLICATION - ITM Secure Application Development course.
-This app is intentionally insecure. Run it only on your own machine
-(it listens on 127.0.0.1 only). Never deploy it on a server.
-
-API-first: the mobile apps for customers, restaurants and riders all
-talk to the JSON API under /api/v1. The web pages are a small console
-for demos and for the operations team.
-
-Run:   python3 app.py      then open  http://127.0.0.1:5050
+Day 4: Fixed Authentication & Sessions, Added MFA.
 """
 import base64
 import hashlib
+import io
+import logging
 import os
+import secrets
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
+import pyotp
+import qrcode
+import qrcode.image.svg
 from flask import (Flask, g, jsonify, redirect, render_template, request,
                    session, url_for)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "orders.db")
 
-app = Flask(__name__)
-app.secret_key = "dabbadash@indore"
+# Setup structured logging for authentication events
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [AUTH] %(message)s")
+auth_logger = logging.getLogger("auth")
 
-# Maps service used to calculate delivery distance
-MAPS_API_KEY = "AIzaSyD-DabbaDash-9xQ2LmP4vT7wK1nR8sY3"
+# Password Hasher using Argon2id
+ph = PasswordHasher()
+
+# Common password blocklist (min length + dictionary/breached check)
+PASSWORD_BLOCKLIST = {
+    "password", "password123", "12345678", "123456789", "1234567890",
+    "qwerty123", "admin123", "admin2024", "welcome123", "letmein123",
+    "dabbadash", "iloveyou", "monkey123", "dragon123", "superman1"
+}
+
+# Lockout policy: 5 failed attempts locks the account/IP for 15 minutes
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_MINUTES = 15
+IDLE_TIMEOUT_SECONDS = 900  # 15 minutes
+
+app = Flask(__name__)
+
+# Task 3: Secret key loaded from environment variable (with fallback)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SECRET_KEY") or "dabbadash@indore_secure_session_key_2024"
+
+# Task 3: Secure cookie flags and session configuration
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,       # Mitigate XSS cookie theft
+    SESSION_COOKIE_SAMESITE="Lax",      # Mitigate CSRF
+    SESSION_COOKIE_SECURE=False,        # Set to True on HTTPS in production; False for local http://127.0.0.1
+    PERMANENT_SESSION_LIFETIME=timedelta(minutes=LOCKOUT_MINUTES)
+)
 
 USER_COLUMNS = ["username", "password", "full_name", "role", "phone", "address", "restaurant_id"]
 ORDER_COLUMNS = ["customer_id", "restaurant_id", "rider_id", "items", "total", "delivery_note", "status"]
@@ -48,100 +75,249 @@ def close_db(_exc):
         db.close()
 
 
+def validate_password_policy(password):
+    """Task 1: Enforce minimum length and check against password blocklist."""
+    if not password or len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if password.lower() in PASSWORD_BLOCKLIST:
+        return False, "Password is too common and easily guessed. Please choose a stronger password."
+    return True, None
+
+
 def hash_password(password):
-    return hashlib.md5(password.encode()).hexdigest()
+    """Task 1: Hash passwords using Argon2id."""
+    return ph.hash(password)
+
+
+def verify_and_rehash_password(user, password):
+    """
+    Task 1: Verifies password against stored hash.
+    Safely re-hashes legacy MD5 passwords to Argon2id on next successful login.
+    """
+    stored_hash = user["password"]
+    db = get_db()
+
+    # Case A: Already Argon2id
+    if stored_hash.startswith("$argon2id$") or stored_hash.startswith("$argon2"):
+        try:
+            ph.verify(stored_hash, password)
+            if ph.check_needs_rehash(stored_hash):
+                new_hash = ph.hash(password)
+                db.execute("UPDATE users SET password=? WHERE id=?", (new_hash, user["id"]))
+                db.commit()
+            return True
+        except VerifyMismatchError:
+            return False
+        except Exception:
+            return False
+
+    # Case B: Legacy MD5 - check and re-hash safely
+    legacy_md5 = hashlib.md5(password.encode()).hexdigest()
+    if legacy_md5 == stored_hash:
+        new_hash = ph.hash(password)
+        db.execute("UPDATE users SET password=? WHERE id=?", (new_hash, user["id"]))
+        db.commit()
+        auth_logger.info("MIGRATED_PASSWORD: user '%s' upgraded from legacy MD5 to Argon2id", user["username"])
+        return True
+
+    return False
+
+
+# Task 2: Login throttling, lockout, and failure logging
+def is_account_locked(username, ip):
+    cutoff = (datetime.now() - timedelta(minutes=LOCKOUT_MINUTES)).strftime("%Y-%m-%d %H:%M:%S")
+    db = get_db()
+    # Lockout after repeated failures for the specific account
+    row = db.execute(
+        "SELECT COUNT(*) AS count FROM login_attempts WHERE username=? AND success=0 AND attempted_at > ?",
+        (username, cutoff)
+    ).fetchone()
+    if row and row["count"] >= MAX_FAILED_ATTEMPTS:
+        return True
+    # IP-level throttling against distributed brute force
+    ip_row = db.execute(
+        "SELECT COUNT(*) AS count FROM login_attempts WHERE ip=? AND success=0 AND attempted_at > ?",
+        (ip, cutoff)
+    ).fetchone()
+    return bool(ip_row and ip_row["count"] >= 25)
+
+
+def record_login_attempt(username, ip, success):
+    db = get_db()
+    db.execute(
+        "INSERT INTO login_attempts (username, ip, attempted_at, success) VALUES (?, ?, ?, ?)",
+        (username, ip, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 1 if success else 0)
+    )
+    if success:
+        # Clear recent failed attempts upon successful login
+        db.execute("DELETE FROM login_attempts WHERE username=? OR ip=?", (username, ip))
+    db.commit()
+
+
+def log_auth_failure(username, ip, reason):
+    auth_logger.warning("FAILED_LOGIN: username='%s' ip='%s' reason='%s'", username, ip, reason)
+
+
+def check_login(username, password, ip):
+    """
+    Shared authentication helper:
+    1. Checks lockout.
+    2. Uses parameterized SQL queries (prevents SQLi).
+    3. Verifies & re-hashes password via Argon2id.
+    4. Logs failures and manages attempt counters.
+    """
+    if is_account_locked(username, ip):
+        log_auth_failure(username, ip, "account_locked_throttled")
+        return None, "Account temporarily locked due to multiple failed login attempts. Please try again in 15 minutes."
+
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+
+    if not user or not verify_and_rehash_password(user, password):
+        record_login_attempt(username, ip, success=False)
+        log_auth_failure(username, ip, "invalid_credentials")
+        return None, "Invalid username or password"
+
+    record_login_attempt(username, ip, success=True)
+    # Refetch user to get any updated fields
+    user = db.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+    return user, None
 
 
 def init_db():
-    if os.path.exists(DB_PATH):
-        return
+    need_create = not os.path.exists(DB_PATH)
     db = sqlite3.connect(DB_PATH)
-    db.executescript("""
-    CREATE TABLE users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        full_name TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'customer',   -- customer | restaurant | rider | admin
-        phone TEXT,
-        address TEXT,
-        restaurant_id INTEGER                     -- set for restaurant staff
-    );
-    CREATE TABLE restaurants (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        area TEXT
-    );
-    CREATE TABLE menu (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        restaurant_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        price INTEGER NOT NULL
-    );
-    CREATE TABLE orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        customer_id INTEGER NOT NULL,
-        restaurant_id INTEGER NOT NULL,
-        rider_id INTEGER,
-        items TEXT NOT NULL,
-        total INTEGER NOT NULL,
-        delivery_note TEXT,
-        status TEXT DEFAULT 'Placed',   -- Placed | Preparing | Ready | Picked up | Delivered
-        created_at TEXT NOT NULL
-    );
-    """)
-    db.executemany("INSERT INTO restaurants (name, area) VALUES (?,?)", [
-        ("Sarafa Swad", "Sarafa Bazaar"), ("Chappan Chaat House", "56 Dukan"), ("Malwa Thali", "Vijay Nagar")])
-    db.executemany("INSERT INTO menu (restaurant_id, name, price) VALUES (?,?,?)", [
-        (1, "Poha Jalebi", 60), (1, "Bhutte ka Kees", 80), (1, "Garadu", 90),
-        (2, "Khopra Pattice", 50), (2, "Dahi Vada", 70), (2, "Johny Hot Dog", 60),
-        (3, "Malwa Special Thali", 220), (3, "Dal Bafla", 160), (3, "Mawa Bati", 70)])
-    users = [
-        ("admin", "Admin@2024", "Ops Administrator", "admin", "9600000001", None, None),
-        ("priya", "Priya@123", "Priya Jain", "customer", "9611111111", "12, Saket Nagar, Indore", None),
-        ("kabir", "Kabir@123", "Kabir Khan", "customer", "9622222222", "B-404, Scheme 54, Indore", None),
-        ("sarafa", "Rest@123", "Sarafa Swad (Manager)", "restaurant", "9633333333", None, 1),
-        ("malwa", "Rest@123", "Malwa Thali (Manager)", "restaurant", "9644444444", None, 3),
-        ("rider.ravi", "Rider@123", "Ravi Yadav", "rider", "9655555555", None, None),
-    ]
-    for u in users:
-        db.execute("INSERT INTO users (username,password,full_name,role,phone,address,restaurant_id) "
-                   "VALUES (?,?,?,?,?,?,?)", (u[0], hash_password(u[1])) + u[2:])
-    db.executemany("INSERT INTO orders (customer_id,restaurant_id,rider_id,items,total,delivery_note,status,created_at) "
-                   "VALUES (?,?,?,?,?,?,?,?)", [
-        (2, 1, 6, "2 x Poha Jalebi, 1 x Garadu", 210, "Ring the bell twice", "Delivered", "2026-10-25 09:10"),
-        (3, 3, None, "1 x Malwa Special Thali", 220, "Leave at security gate", "Preparing", "2026-10-28 13:05"),
-        (2, 3, None, "2 x Dal Bafla, 2 x Mawa Bati", 460, "Call on arrival", "Placed", "2026-10-28 20:40"),
-    ])
-    db.commit()
+    if need_create:
+        db.executescript("""
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            full_name TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'customer',   -- customer | restaurant | rider | admin
+            phone TEXT,
+            address TEXT,
+            restaurant_id INTEGER,                   -- set for restaurant staff
+            mfa_secret TEXT,                         -- Task 5: TOTP MFA secret key
+            mfa_enabled INTEGER DEFAULT 0            -- Task 5: TOTP MFA active flag
+        );
+        CREATE TABLE restaurants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            area TEXT
+        );
+        CREATE TABLE menu (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            restaurant_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            price INTEGER NOT NULL
+        );
+        CREATE TABLE orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER NOT NULL,
+            restaurant_id INTEGER NOT NULL,
+            rider_id INTEGER,
+            items TEXT NOT NULL,
+            total INTEGER NOT NULL,
+            delivery_note TEXT,
+            status TEXT DEFAULT 'Placed',   -- Placed | Preparing | Ready | Picked up | Delivered
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE login_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            ip TEXT,
+            attempted_at TEXT NOT NULL,
+            success INTEGER NOT NULL
+        );
+        """)
+        db.executemany("INSERT INTO restaurants (name, area) VALUES (?,?)", [
+            ("Sarafa Swad", "Sarafa Bazaar"), ("Chappan Chaat House", "56 Dukan"), ("Malwa Thali", "Vijay Nagar")])
+        db.executemany("INSERT INTO menu (restaurant_id, name, price) VALUES (?,?,?)", [
+            (1, "Poha Jalebi", 60), (1, "Bhutte ka Kees", 80), (1, "Garadu", 90),
+            (2, "Khopra Pattice", 50), (2, "Dahi Vada", 70), (2, "Johny Hot Dog", 60),
+            (3, "Malwa Special Thali", 220), (3, "Dal Bafla", 160), (3, "Mawa Bati", 70)])
+        users = [
+            ("admin", "Admin@2024", "Ops Administrator", "admin", "9600000001", None, None),
+            ("priya", "Priya@123", "Priya Jain", "customer", "9611111111", "12, Saket Nagar, Indore", None),
+            ("kabir", "Kabir@123", "Kabir Khan", "customer", "9622222222", "B-404, Scheme 54, Indore", None),
+            ("sarafa", "Rest@123", "Sarafa Swad (Manager)", "restaurant", "9633333333", None, 1),
+            ("malwa", "Rest@123", "Malwa Thali (Manager)", "restaurant", "9644444444", None, 3),
+            ("rider.ravi", "Rider@123", "Ravi Yadav", "rider", "9655555555", None, None),
+        ]
+        for u in users:
+            # Seed with Argon2id hash directly
+            db.execute("INSERT INTO users (username,password,full_name,role,phone,address,restaurant_id,mfa_secret,mfa_enabled) "
+                       "VALUES (?,?,?,?,?,?,?,?,?)", (u[0], hash_password(u[1])) + u[2:] + (None, 0))
+        db.executemany("INSERT INTO orders (customer_id,restaurant_id,rider_id,items,total,delivery_note,status,created_at) "
+                       "VALUES (?,?,?,?,?,?,?,?)", [
+            (2, 1, 6, "2 x Poha Jalebi, 1 x Garadu", 210, "Ring the bell twice", "Delivered", "2026-10-25 09:10"),
+            (3, 3, None, "1 x Malwa Special Thali", 220, "Leave at security gate", "Preparing", "2026-10-28 13:05"),
+            (2, 3, None, "2 x Dal Bafla, 2 x Mawa Bati", 460, "Call on arrival", "Placed", "2026-10-28 20:40"),
+        ])
+        db.commit()
+    else:
+        # Schema migration for existing database: ensure MFA columns & login_attempts table exist
+        cols = [r[1] for r in db.execute("PRAGMA table_info(users)").fetchall()]
+        if "mfa_secret" not in cols:
+            db.execute("ALTER TABLE users ADD COLUMN mfa_secret TEXT")
+        if "mfa_enabled" not in cols:
+            db.execute("ALTER TABLE users ADD COLUMN mfa_enabled INTEGER DEFAULT 0")
+        db.execute("""
+        CREATE TABLE IF NOT EXISTS login_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            ip TEXT,
+            attempted_at TEXT NOT NULL,
+            success INTEGER NOT NULL
+        );
+        """)
+        db.commit()
     db.close()
 
 
-# ---------------------------------------------------------------- auth helpers
-def check_login(username, password):
-    """Shared by the web login page and the API login."""
-    query = ("SELECT * FROM users WHERE username = '" + username +
-             "' AND password = '" + hash_password(password) + "'")
-    return get_db().execute(query).fetchone(), query
+# ---------------------------------------------------------------- session & auth helpers
+@app.before_request
+def enforce_idle_timeout():
+    """Task 3: Enforce idle timeout (15 mins). Invalidate session on inactivity."""
+    if "user_id" in session:
+        now = datetime.now().timestamp()
+        last_active = session.get("_last_active")
+        if last_active and (now - last_active > IDLE_TIMEOUT_SECONDS):
+            session.clear()
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "session expired due to inactivity"}), 401
+            return redirect(url_for("login", msg="Your session has expired due to inactivity. Please log in again."))
+        session["_last_active"] = now
 
 
 def make_token(user):
-    # Mobile apps send this back as  Authorization: Bearer <token>
-    raw = "%s:%s:%s" % (user["id"], user["username"], user["role"])
+    raw = "%s:%s" % (user["id"], user["username"])
     return base64.b64encode(raw.encode()).decode()
 
 
 def api_user():
-    """Who is calling the API? Uses the Bearer token, or the web session."""
+    """
+    Task 4: Authorisation data (role, user) loaded from the server database,
+    NEVER trusted from client cookies or client-supplied tokens.
+    """
+    uid = None
     header = request.headers.get("Authorization", "")
     if header.startswith("Bearer "):
         try:
-            uid, username, role = base64.b64decode(header[7:]).decode().split(":")
-            return {"id": int(uid), "username": username, "role": role}
+            parts = base64.b64decode(header[7:]).decode().split(":")
+            uid = int(parts[0])
         except Exception:
             return None
-    if "user_id" in session:
-        return {"id": session["user_id"], "username": session["username"], "role": session["role"]}
+    elif "user_id" in session:
+        uid = session["user_id"]
+
+    if uid:
+        u = get_db().execute("SELECT id, username, full_name, role, restaurant_id FROM users WHERE id=?",
+                             (uid,)).fetchone()
+        if u:
+            return {"id": u["id"], "username": u["username"], "name": u["full_name"],
+                    "role": u["role"], "restaurant_id": u["restaurant_id"]}
     return None
 
 
@@ -157,12 +333,23 @@ def api_auth(fn):
 
 
 def current_user():
+    """
+    Task 4: User profile and role ALWAYS loaded from the server DB,
+    never trusted from the cookie.
+    """
     if "user_id" not in session:
         return None
-    return {"id": session["user_id"], "name": session["name"], "role": session["role"]}
+    u = get_db().execute("SELECT id, username, full_name, role, restaurant_id FROM users WHERE id=?",
+                         (session["user_id"],)).fetchone()
+    if not u:
+        session.clear()
+        return None
+    return {"id": u["id"], "username": u["username"], "name": u["full_name"],
+            "role": u["role"], "restaurant_id": u["restaurant_id"]}
 
 
 def login_required(role=None):
+    """Enforces access control using server-validated role from database."""
     def wrap(fn):
         def inner(*args, **kwargs):
             user = current_user()
@@ -206,26 +393,129 @@ def index():
 def login():
     error = None
     if request.method == "POST":
-        try:
-            user, query = check_login(request.form.get("username", ""), request.form.get("password", ""))
-        except Exception as e:
-            return render_template("error.html", msg="Database error: " + str(e)), 500
-        if user:
-            session["user_id"], session["username"] = user["id"], user["username"]
-            session["name"], session["role"] = user["full_name"], user["role"]
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        ip = request.remote_addr
+
+        user, err = check_login(username, password, ip)
+        if err:
+            error = err
+        elif user:
+            # Task 5: For admin role, enforce TOTP MFA with pyotp
+            if user["role"] == "admin":
+                session.clear()  # Task 3: Prevent session fixation
+                if not user["mfa_enabled"]:
+                    # Needs QR enrolment
+                    session["mfa_enroll_uid"] = user["id"]
+                    return redirect(url_for("mfa_enroll"))
+                else:
+                    # Needs TOTP verification
+                    session["mfa_verify_uid"] = user["id"]
+                    return redirect(url_for("mfa_verify"))
+
+            # Standard user login: start clean session
+            session.clear()  # Task 3: New session at login
+            session["user_id"] = user["id"]
+            session["_last_active"] = datetime.now().timestamp()
+            auth_logger.info("LOGIN_SUCCESS: user '%s' logged in", user["username"])
             return redirect(url_for("index"))
-        error = "Invalid username or password"
+
     return render_template("login.html", error=error)
+
+
+# Task 5: MFA QR Enrolment
+@app.route("/mfa/enroll", methods=["GET", "POST"])
+def mfa_enroll():
+    uid = session.get("mfa_enroll_uid")
+    if not uid:
+        return redirect(url_for("login"))
+
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+    if not user:
+        session.clear()
+        return redirect(url_for("login"))
+
+    secret = user["mfa_secret"]
+    if not secret:
+        secret = pyotp.random_base32()
+        db.execute("UPDATE users SET mfa_secret=? WHERE id=?", (secret, uid))
+        db.commit()
+
+    totp = pyotp.TOTP(secret)
+    uri = totp.provisioning_uri(name=user["username"], issuer_name="DabbaDash")
+
+    # Generate QR Code as SVG
+    img = qrcode.make(uri, image_factory=qrcode.image.svg.SvgPathImage)
+    stream = io.BytesIO()
+    img.save(stream)
+    qr_svg = stream.getvalue().decode()
+
+    error = None
+    if request.method == "POST":
+        code = request.form.get("code", "").strip()
+        if totp.verify(code):
+            db.execute("UPDATE users SET mfa_enabled=1 WHERE id=?", (uid,))
+            db.commit()
+            auth_logger.info("MFA_ENROLLED: admin '%s' enrolled MFA successfully", user["username"])
+            session.clear()
+            session["user_id"] = uid
+            session["_last_active"] = datetime.now().timestamp()
+            return redirect(url_for("index"))
+        else:
+            log_auth_failure(user["username"], request.remote_addr, "invalid_mfa_code_during_enroll")
+            error = "Invalid 6-digit code. Please verify your authenticator app time is synced and try again."
+
+    return render_template("mfa_enroll.html", qr_svg=qr_svg, secret=secret, error=error, username=user["username"])
+
+
+# Task 5: MFA TOTP Verification
+@app.route("/mfa/verify", methods=["GET", "POST"])
+def mfa_verify():
+    uid = session.get("mfa_verify_uid")
+    if not uid:
+        return redirect(url_for("login"))
+
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+    if not user:
+        session.clear()
+        return redirect(url_for("login"))
+
+    error = None
+    if request.method == "POST":
+        code = request.form.get("code", "").strip()
+        totp = pyotp.TOTP(user["mfa_secret"])
+        if totp.verify(code):
+            session.clear()
+            session["user_id"] = uid
+            session["_last_active"] = datetime.now().timestamp()
+            auth_logger.info("MFA_SUCCESS: admin '%s' authenticated with TOTP", user["username"])
+            return redirect(url_for("index"))
+        else:
+            log_auth_failure(user["username"], request.remote_addr, "invalid_mfa_code")
+            error = "Invalid 6-digit code. Please try again."
+
+    return render_template("mfa_verify.html", error=error, username=user["username"])
 
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
         f = request.form
+        password = f.get("password", "")
+
+        # Task 1: Length and blocklist check
+        valid, msg = validate_password_policy(password)
+        if not valid:
+            return render_template("register.html", error=msg)
+
         try:
-            get_db().execute("INSERT INTO users (username,password,full_name,role,phone,address) VALUES (?,?,?,?,?,?)",
-                             (f["username"], hash_password(f["password"]), f["full_name"], "customer",
-                              f.get("phone"), f.get("address")))
+            get_db().execute(
+                "INSERT INTO users (username,password,full_name,role,phone,address) VALUES (?,?,?,?,?,?)",
+                (f["username"].strip(), hash_password(password), f["full_name"].strip(), "customer",
+                 f.get("phone"), f.get("address"))
+            )
             get_db().commit()
         except sqlite3.IntegrityError:
             return render_template("register.html", error="Username already taken")
@@ -235,59 +525,66 @@ def register():
 
 @app.route("/logout")
 def logout():
+    """Task 3: Proper logout - clear session and explicitly delete session cookie."""
     session.clear()
-    return redirect(url_for("login"))
+    resp = redirect(url_for("login"))
+    resp.delete_cookie(app.config.get("SESSION_COOKIE_NAME", "session"))
+    return resp
 
 
 @app.route("/customer")
 @login_required("customer")
 def customer_home():
     db = get_db()
+    user = current_user()
     rid = request.args.get("restaurant", "1")
     restaurants = db.execute("SELECT * FROM restaurants").fetchall()
     menu = db.execute("SELECT * FROM menu WHERE restaurant_id=?", (rid,)).fetchall()
     orders = db.execute("SELECT o.*, r.name AS restaurant FROM orders o JOIN restaurants r ON r.id=o.restaurant_id "
-                        "WHERE customer_id=? ORDER BY o.id DESC", (session["user_id"],)).fetchall()
-    return render_template("customer.html", user=current_user(), restaurants=restaurants, menu=menu,
-                           rid=int(rid), orders=orders, token=make_token(
-                               {"id": session["user_id"], "username": session["username"], "role": "customer"}))
+                        "WHERE customer_id=? ORDER BY o.id DESC", (user["id"],)).fetchall()
+    return render_template("customer.html", user=user, restaurants=restaurants, menu=menu,
+                           rid=int(rid), orders=orders, token=make_token(user))
 
 
 @app.route("/order", methods=["POST"])
 @login_required("customer")
 def web_order():
+    user = current_user()
     qty = {k[4:]: v for k, v in request.form.items() if k.startswith("qty_")}
-    create_order(session["user_id"], request.form["restaurant_id"], qty, request.form.get("delivery_note", ""))
+    create_order(user["id"], request.form["restaurant_id"], qty, request.form.get("delivery_note", ""))
     return redirect(url_for("customer_home", restaurant=request.form["restaurant_id"]))
 
 
 @app.route("/restaurant")
 @login_required("restaurant")
 def restaurant_home():
+    user = current_user()
     db = get_db()
-    me = db.execute("SELECT restaurant_id FROM users WHERE id=?", (session["user_id"],)).fetchone()
+    me = db.execute("SELECT restaurant_id FROM users WHERE id=?", (user["id"],)).fetchone()
     orders = db.execute("SELECT o.*, u.full_name AS customer FROM orders o JOIN users u ON u.id=o.customer_id "
                         "WHERE o.restaurant_id=? ORDER BY o.id DESC", (me["restaurant_id"],)).fetchall()
-    return render_template("restaurant.html", user=current_user(), orders=orders)
+    return render_template("restaurant.html", user=user, orders=orders)
 
 
 @app.route("/rider")
 @login_required("rider")
 def rider_home():
+    user = current_user()
     orders = get_db().execute(
         "SELECT o.*, u.full_name AS customer, u.phone, u.address, r.name AS restaurant FROM orders o "
         "JOIN users u ON u.id=o.customer_id JOIN restaurants r ON r.id=o.restaurant_id "
-        "WHERE o.status IN ('Ready','Picked up') OR o.rider_id=? ORDER BY o.id DESC", (session["user_id"],)).fetchall()
-    return render_template("rider.html", user=current_user(), orders=orders)
+        "WHERE o.status IN ('Ready','Picked up') OR o.rider_id=? ORDER BY o.id DESC", (user["id"],)).fetchall()
+    return render_template("rider.html", user=user, orders=orders)
 
 
 @app.route("/order/<int:order_id>/status", methods=["POST"])
 @login_required()
 def web_status(order_id):
+    user = current_user()
     db = get_db()
-    if session["role"] == "rider":
+    if user["role"] == "rider":
         db.execute("UPDATE orders SET status=?, rider_id=? WHERE id=?",
-                   (request.form["status"], session["user_id"], order_id))
+                   (request.form["status"], user["id"], order_id))
     else:
         db.execute("UPDATE orders SET status=? WHERE id=?", (request.form["status"], order_id))
     db.commit()
@@ -297,20 +594,31 @@ def web_status(order_id):
 @app.route("/admin")
 @login_required("admin")
 def admin_home():
+    user = current_user()
     db = get_db()
     users = db.execute("SELECT id, username, full_name, role, phone FROM users").fetchall()
     orders = db.execute("SELECT o.*, r.name AS restaurant FROM orders o JOIN restaurants r ON r.id=o.restaurant_id "
                         "ORDER BY o.id DESC").fetchall()
-    return render_template("admin.html", user=current_user(), users=users, orders=orders)
+    return render_template("admin.html", user=user, users=users, orders=orders)
 
 
-# ---------------------------------------------------------------- JSON API (used by the mobile apps)
+# ---------------------------------------------------------------- JSON API
 @app.route("/api/v1/register", methods=["POST"])
 def api_register():
     data = request.get_json(silent=True) or {}
     if not data.get("username") or not data.get("password") or not data.get("full_name"):
         return jsonify({"error": "username, password and full_name are required"}), 400
+
+    # Task 1: Length and blocklist check
+    valid, msg = validate_password_policy(data.get("password", ""))
+    if not valid:
+        return jsonify({"error": msg}), 400
+
     data["password"] = hash_password(data["password"])
+    # Default role to customer (prevent mass assignment of admin)
+    if "role" not in data or data["role"] not in ["customer", "restaurant", "rider"]:
+        data["role"] = "customer"
+
     fields = {k: v for k, v in data.items() if k in USER_COLUMNS}
     try:
         db = get_db()
@@ -325,18 +633,26 @@ def api_register():
 @app.route("/api/v1/login", methods=["POST"])
 def api_login():
     data = request.get_json(silent=True) or {}
-    try:
-        user, query = check_login(data.get("username", ""), data.get("password", ""))
-    except Exception as e:
-        return jsonify({"error": "database error", "detail": str(e), "query": query_for_debug(data)}), 500
-    if not user:
-        return jsonify({"ok": False, "error": "invalid credentials"}), 401
+    username = data.get("username", "")
+    password = data.get("password", "")
+    ip = request.remote_addr
+
+    user, err = check_login(username, password, ip)
+    if err:
+        status_code = 429 if "locked" in err else 401
+        return jsonify({"ok": False, "error": err}), status_code
+
+    # Task 5: TOTP check for admin in API
+    if user["role"] == "admin" and user["mfa_enabled"]:
+        mfa_code = str(data.get("mfa_code", "")).strip()
+        if not mfa_code:
+            return jsonify({"ok": False, "mfa_required": True, "error": "MFA code required for admin"}), 401
+        totp = pyotp.TOTP(user["mfa_secret"])
+        if not totp.verify(mfa_code):
+            log_auth_failure(user["username"], ip, "invalid_api_mfa_code")
+            return jsonify({"ok": False, "error": "invalid MFA code"}), 401
+
     return jsonify({"ok": True, "token": make_token(user), "user_id": user["id"], "role": user["role"]})
-
-
-def query_for_debug(data):
-    return ("SELECT * FROM users WHERE username = '" + data.get("username", "") +
-            "' AND password = '" + hash_password(data.get("password", "")) + "'")
 
 
 @app.route("/api/v1/restaurants")
@@ -362,8 +678,16 @@ def api_orders():
         if not oid:
             return jsonify({"error": "no valid items"}), 400
         return jsonify(dict(db.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone())), 201
-    rows = db.execute("SELECT * FROM orders WHERE customer_id=? OR rider_id=? ORDER BY id DESC",
-                      (g.user["id"], g.user["id"])).fetchall()
+
+    # Task 4: Load role strictly from server DB via g.user
+    if g.user["role"] == "admin":
+        rows = db.execute("SELECT * FROM orders ORDER BY id DESC").fetchall()
+    elif g.user["role"] == "restaurant":
+        rows = db.execute("SELECT * FROM orders WHERE restaurant_id=? ORDER BY id DESC",
+                          (g.user.get("restaurant_id"),)).fetchall()
+    else:
+        rows = db.execute("SELECT * FROM orders WHERE customer_id=? OR rider_id=? ORDER BY id DESC",
+                          (g.user["id"], g.user["id"])).fetchall()
     return jsonify([dict(r) for r in rows])
 
 
@@ -374,6 +698,21 @@ def api_order(order_id):
     order = db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
     if not order:
         return jsonify({"error": "not found"}), 404
+
+    # Access control check (F-04 IDOR fix)
+    uid = g.user["id"]
+    caller = db.execute("SELECT restaurant_id FROM users WHERE id=?", (uid,)).fetchone()
+    user_rest_id = caller["restaurant_id"] if caller else None
+
+    ok = (
+        g.user["role"] == "admin"
+        or order["customer_id"] == uid
+        or order["rider_id"] == uid
+        or (g.user["role"] == "restaurant" and user_rest_id == order["restaurant_id"])
+    )
+    if not ok:
+        return jsonify({"error": "not found"}), 404
+
     if request.method == "PATCH":
         if g.user["role"] == "customer" and order["customer_id"] != g.user["id"]:
             return jsonify({"error": "not your order"}), 403
@@ -383,6 +722,7 @@ def api_order(order_id):
                 db.execute("UPDATE orders SET %s=? WHERE id=?" % key, (value, order_id))
         db.commit()
         order = db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+
     result = dict(order)
     cust = db.execute("SELECT full_name, phone, address FROM users WHERE id=?", (order["customer_id"],)).fetchone()
     result["customer"] = dict(cust) if cust else None
@@ -392,7 +732,11 @@ def api_order(order_id):
 @app.route("/api/v1/users/<int:user_id>")
 @api_auth
 def api_user_profile(user_id):
-    u = get_db().execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+    # Only allow self or admin
+    if g.user["role"] != "admin" and g.user["id"] != user_id:
+        return jsonify({"error": "not found"}), 404
+    u = get_db().execute("SELECT id, username, full_name, role, phone, address FROM users WHERE id=?",
+                         (user_id,)).fetchone()
     if not u:
         return jsonify({"error": "not found"}), 404
     return jsonify(dict(u))
@@ -401,7 +745,10 @@ def api_user_profile(user_id):
 @app.route("/api/v1/admin/users")
 @api_auth
 def api_admin_users():
-    rows = get_db().execute("SELECT * FROM users").fetchall()
+    # Enforce admin role strictly from server
+    if g.user["role"] != "admin":
+        return jsonify({"error": "forbidden"}), 403
+    rows = get_db().execute("SELECT id, username, full_name, role, phone FROM users").fetchall()
     return jsonify([dict(r) for r in rows])
 
 

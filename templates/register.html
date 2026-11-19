@@ -5,7 +5,7 @@
 <form method="post">
 <label>Full name</label><input name="full_name" required>
 <label>Username</label><input name="username" required>
-<label>Password</label><input name="password" type="password" required>
+<label>Password (min 8 characters)</label><input name="password" type="password" minlength="8" required>
 <label>Mobile</label><input name="phone">
 <label>Delivery address</label><textarea name="address" rows="2"></textarea>
 <button>Register</button></form></div>{% endblock %}
