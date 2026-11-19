@@ -199,7 +199,8 @@ def init_db():
             address TEXT,
             restaurant_id INTEGER,                   -- set for restaurant staff
             mfa_secret TEXT,                         -- Task 5: TOTP MFA secret key
-            mfa_enabled INTEGER DEFAULT 0            -- Task 5: TOTP MFA active flag
+            mfa_enabled INTEGER DEFAULT 0,           -- Task 5: TOTP MFA active flag
+            last_totp_code TEXT                      -- Anti-replay: prevents re-use of the same TOTP code
         );
         CREATE TABLE restaurants (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -263,6 +264,8 @@ def init_db():
             db.execute("ALTER TABLE users ADD COLUMN mfa_secret TEXT")
         if "mfa_enabled" not in cols:
             db.execute("ALTER TABLE users ADD COLUMN mfa_enabled INTEGER DEFAULT 0")
+        if "last_totp_code" not in cols:
+            db.execute("ALTER TABLE users ADD COLUMN last_totp_code TEXT")
         db.execute("""
         CREATE TABLE IF NOT EXISTS login_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -289,6 +292,40 @@ def enforce_idle_timeout():
                 return jsonify({"error": "session expired due to inactivity"}), 401
             return redirect(url_for("login", msg="Your session has expired due to inactivity. Please log in again."))
         session["_last_active"] = now
+
+
+def verify_and_consume_totp(user, code):
+    """
+    Anti-Replay / Single-Use TOTP Enforcement (RFC 6238):
+    Verifies that the 6-digit TOTP code is mathematically valid AND
+    ensures it has never been used before by this account.
+    """
+    code = str(code).strip()
+    if not code:
+        return False, "MFA code is required."
+
+    secret = user["mfa_secret"]
+    if not secret:
+        return False, "MFA is not configured for this account."
+
+    totp = pyotp.TOTP(secret)
+    if not totp.verify(code):
+        return False, "Invalid 6-digit code. Please verify your authenticator app time is synced and try again."
+
+    # Anti-replay check: ensure this code hasn't already been consumed
+    try:
+        last_code = user["last_totp_code"]
+    except Exception:
+        last_code = None
+
+    if last_code and str(last_code).strip() == code:
+        return False, "This TOTP code has already been used. Each code can only be used once. Please wait for the next 30-second code on your authenticator app."
+
+    # Consume the code immediately in the database
+    db = get_db()
+    db.execute("UPDATE users SET last_totp_code=? WHERE id=?", (code, user["id"]))
+    db.commit()
+    return True, None
 
 
 def make_token(user):
@@ -460,7 +497,8 @@ def mfa_enroll():
     error = None
     if request.method == "POST":
         code = request.form.get("code", "").strip()
-        if totp.verify(code):
+        ok, msg = verify_and_consume_totp(user, code)
+        if ok:
             db.execute("UPDATE users SET mfa_enabled=1 WHERE id=?", (uid,))
             db.commit()
             auth_logger.info("MFA_ENROLLED: admin '%s' enrolled MFA successfully", user["username"])
@@ -469,8 +507,8 @@ def mfa_enroll():
             session["_last_active"] = datetime.now().timestamp()
             return redirect(url_for("index"))
         else:
-            log_auth_failure(user["username"], request.remote_addr, "invalid_mfa_code_during_enroll")
-            error = "Invalid 6-digit code. Please verify your authenticator app time is synced and try again."
+            log_auth_failure(user["username"], request.remote_addr, "mfa_enroll_failed: " + msg)
+            error = msg
 
     return render_template("mfa_enroll.html", qr_svg=qr_svg, secret=secret, error=error, username=user["username"])
 
@@ -491,16 +529,16 @@ def mfa_verify():
     error = None
     if request.method == "POST":
         code = request.form.get("code", "").strip()
-        totp = pyotp.TOTP(user["mfa_secret"])
-        if totp.verify(code):
+        ok, msg = verify_and_consume_totp(user, code)
+        if ok:
             session.clear()
             session["user_id"] = uid
             session["_last_active"] = datetime.now().timestamp()
             auth_logger.info("MFA_SUCCESS: admin '%s' authenticated with TOTP", user["username"])
             return redirect(url_for("index"))
         else:
-            log_auth_failure(user["username"], request.remote_addr, "invalid_mfa_code")
-            error = "Invalid 6-digit code. Please try again."
+            log_auth_failure(user["username"], request.remote_addr, "mfa_verify_failed: " + msg)
+            error = msg
 
     return render_template("mfa_verify.html", error=error, username=user["username"])
 
@@ -648,15 +686,15 @@ def api_login():
         status_code = 429 if "locked" in err else 401
         return jsonify({"ok": False, "error": err}), status_code
 
-    # Task 5: TOTP check for admin in API
+    # Task 5: TOTP check for admin in API (with anti-replay single-use enforcement)
     if user["role"] == "admin" and user["mfa_enabled"]:
         mfa_code = str(data.get("mfa_code", "")).strip()
         if not mfa_code:
             return jsonify({"ok": False, "mfa_required": True, "error": "MFA code required for admin"}), 401
-        totp = pyotp.TOTP(user["mfa_secret"])
-        if not totp.verify(mfa_code):
-            log_auth_failure(user["username"], ip, "invalid_api_mfa_code")
-            return jsonify({"ok": False, "error": "invalid MFA code"}), 401
+        ok, msg = verify_and_consume_totp(user, mfa_code)
+        if not ok:
+            log_auth_failure(user["username"], ip, "api_mfa_failed: " + msg)
+            return jsonify({"ok": False, "error": msg}), 401
 
     return jsonify({"ok": True, "token": make_token(user), "user_id": user["id"], "role": user["role"]})
 
