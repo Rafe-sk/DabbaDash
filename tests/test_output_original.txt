@@ -1,0 +1,256 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.2.0, pluggy-1.7.0 -- /Users/rafeshaikh/Desktop/cybersecurity/AbhishekSir/G3_DabbaDash_Orders/venv/bin/python3.14
+cachedir: .pytest_cache
+rootdir: /Users/rafeshaikh/Desktop/cybersecurity/AbhishekSir/G3_DabbaDash_Orders
+plugins: platformdirs-4.14.7
+collecting ... collected 10 items
+
+tests/test_api_security.py::test_sql_injection_login_blocked FAILED      [ 10%]
+tests/test_api_security.py::test_order_bola_idor_blocked FAILED          [ 20%]
+tests/test_api_security.py::test_mass_assignment_admin_role_blocked FAILED [ 30%]
+tests/test_api_security.py::test_profile_property_level_data_exposure FAILED [ 40%]
+tests/test_api_security.py::test_function_level_authorization_admin_users FAILED [ 50%]
+tests/test_api_security.py::test_auth_missing_token_rejected PASSED      [ 60%]
+tests/test_api_security.py::test_auth_forged_bearer_token_rejected FAILED [ 70%]
+tests/test_api_security.py::test_rate_limiting_login_lockout FAILED      [ 80%]
+tests/test_api_security.py::test_order_patch_mass_assignment_price_tampering FAILED [ 90%]
+tests/test_api_security.py::test_password_policy_enforcement FAILED      [100%]
+
+=================================== FAILURES ===================================
+_______________________ test_sql_injection_login_blocked _______________________
+
+client = <FlaskClient <Flask 'orig_app'>>
+
+    def test_sql_injection_login_blocked(client):
+        """
+        ATTACK: Send SQL injection payload `admin' --` to login endpoint.
+        EXPECTED: 401 Unauthorized (must NOT grant admin session).
+        """
+        payload = {"username": "admin' --", "password": "arbitrary_password"}
+        res = client.post("/api/v1/login", json=payload)
+    
+        # In hardened app: must be 401 Unauthorized
+        # In original app: returns 200 OK with admin token (VULNERABLE)
+>       assert res.status_code == 401, f"SQL injection succeeded! Status: {res.status_code}, Body: {res.get_json()}"
+E       AssertionError: SQL injection succeeded! Status: 200, Body: {'ok': True, 'role': 'admin', 'token': 'MTphZG1pbjphZG1pbg==', 'user_id': 1}
+E       assert 200 == 401
+E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_api_security.py:71: AssertionError
+_________________________ test_order_bola_idor_blocked _________________________
+
+client = <FlaskClient <Flask 'orig_app'>>
+
+    def test_order_bola_idor_blocked(client):
+        """
+        ATTACK: Customer Kabir (ID 3) requests Order #1 belonging to Priya (ID 2).
+        EXPECTED: 404 Not Found (must NOT leak Priya's phone or address).
+        """
+        token = get_auth_token(client, "kabir", "Kabir@123")
+        assert token is not None, "Failed to authenticate as kabir"
+    
+        headers = {"Authorization": f"Bearer {token}"}
+        res = client.get("/api/v1/orders/1", headers=headers)
+    
+        # In hardened app: returns 404 Not Found
+        # In original app: returns 200 OK with Priya's phone & address (VULNERABLE)
+>       assert res.status_code == 404, f"BOLA vulnerability present! Kabir can view Order #1 (status {res.status_code})"
+E       AssertionError: BOLA vulnerability present! Kabir can view Order #1 (status 200)
+E       assert 200 == 404
+E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_api_security.py:93: AssertionError
+___________________ test_mass_assignment_admin_role_blocked ____________________
+
+client = <FlaskClient <Flask 'orig_app'>>
+app_instance = <module 'orig_app' from '/Users/rafeshaikh/Downloads/G3_DabbaDash_Orders/app.py'>
+
+    def test_mass_assignment_admin_role_blocked(client, app_instance):
+        """
+        ATTACK: Register a new account supplying {"role": "admin"}.
+        EXPECTED: Role must NOT be set to 'admin'; must default strictly to 'customer'.
+        """
+        import secrets
+        test_user = f"attacker_{secrets.token_hex(4)}"
+        payload = {
+            "username": test_user,
+            "password": "StrongPassword@123",
+            "full_name": "Attacker Test",
+            "role": "admin"
+        }
+        res = client.post("/api/v1/register", json=payload)
+        assert res.status_code == 201, f"Registration failed: {res.get_data(as_text=True)}"
+    
+        with app_instance.app.app_context():
+            db = app_instance.get_db()
+            row = db.execute("SELECT role FROM users WHERE username=?", (test_user,)).fetchone()
+            assert row is not None
+            # In hardened app: role is strictly 'customer'
+            # In original app: role becomes 'admin' (VULNERABLE)
+>           assert row["role"] != "admin", f"Mass assignment succeeded! User registered with elevated role: {row['role']}"
+E           AssertionError: Mass assignment succeeded! User registered with elevated role: admin
+E           assert 'admin' != 'admin'
+
+tests/test_api_security.py:124: AssertionError
+__________________ test_profile_property_level_data_exposure ___________________
+
+client = <FlaskClient <Flask 'orig_app'>>
+
+    def test_profile_property_level_data_exposure(client):
+        """
+        ATTACK: Query user profile endpoint GET /api/v1/users/<id>.
+        EXPECTED: Response must NEVER contain password hash, mfa_secret, or credentials.
+        """
+        token = get_auth_token(client, "priya", "Priya@123")
+        assert token is not None, "Failed to authenticate as priya"
+    
+        headers = {"Authorization": f"Bearer {token}"}
+        res = client.get("/api/v1/users/2", headers=headers)
+        assert res.status_code == 200, f"Profile fetch failed: {res.status_code}"
+    
+        data = res.get_json() or {}
+        # In hardened app: password and secrets are omitted
+        # In original app: leaks raw MD5 password hash (VULNERABLE)
+>       assert "password" not in data, f"Sensitive data exposure! Password hash exposed in API response: {data.get('password')}"
+E       AssertionError: Sensitive data exposure! Password hash exposed in API response: 3e17f774c90d60dc17444c0423470e04
+E       assert 'password' not in {'address': '12, Saket Nagar, Indore', 'full_name': 'Priya Jain', 'id': 2, 'password': '3e17f774c90d60dc17444c0423470e04', ...}
+
+tests/test_api_security.py:147: AssertionError
+________________ test_function_level_authorization_admin_users _________________
+
+client = <FlaskClient <Flask 'orig_app'>>
+
+    def test_function_level_authorization_admin_users(client):
+        """
+        ATTACK: Standard customer (Kabir) calls GET /api/v1/admin/users.
+        EXPECTED: 403 Forbidden (administrative function must be restricted to admin).
+        """
+        token = get_auth_token(client, "kabir", "Kabir@123")
+        assert token is not None, "Failed to authenticate as kabir"
+    
+        headers = {"Authorization": f"Bearer {token}"}
+        res = client.get("/api/v1/admin/users", headers=headers)
+    
+        # In hardened app: returns 403 Forbidden
+        # In original app: returns 200 OK with all user records (VULNERABLE)
+>       assert res.status_code == 403, f"BFLA vulnerability! Customer accessed admin user list: status {res.status_code}"
+E       AssertionError: BFLA vulnerability! Customer accessed admin user list: status 200
+E       assert 200 == 403
+E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_api_security.py:168: AssertionError
+____________________ test_auth_forged_bearer_token_rejected ____________________
+
+client = <FlaskClient <Flask 'orig_app'>>
+
+    def test_auth_forged_bearer_token_rejected(client):
+        """
+        ATTACK: Send forged/tampered bearer token (e.g. Base64 encoded '1:admin:admin').
+        EXPECTED: 401 Unauthorized (must reject unsigned or altered tokens).
+        """
+        forged_token = base64.b64encode(b"1:admin:admin").decode()
+        headers = {"Authorization": f"Bearer {forged_token}"}
+        res = client.get("/api/v1/orders", headers=headers)
+    
+        # In hardened app: returns 401 Unauthorized (invalid HMAC signature)
+        # In original app: returns 200 OK (VULNERABLE)
+>       assert res.status_code == 401, f"Forged token accepted! Status: {res.status_code}"
+E       AssertionError: Forged token accepted! Status: 200
+E       assert 200 == 401
+E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_api_security.py:199: AssertionError
+_______________________ test_rate_limiting_login_lockout _______________________
+
+client = <FlaskClient <Flask 'orig_app'>>
+app_instance = <module 'orig_app' from '/Users/rafeshaikh/Downloads/G3_DabbaDash_Orders/app.py'>
+
+    def test_rate_limiting_login_lockout(client, app_instance):
+        """
+        ATTACK: Send 6 consecutive incorrect password attempts for user 'kabir'.
+        EXPECTED: Account/IP lockout triggered (429 Too Many Requests or locked error).
+        """
+        import secrets
+        target_user = f"brute_{secrets.token_hex(4)}"
+    
+        # Register test user
+        client.post("/api/v1/register", json={
+            "username": target_user,
+            "password": "InitialPassword@123",
+            "full_name": "Brute Target"
+        })
+    
+        last_res = None
+        for i in range(6):
+            last_res = client.post("/api/v1/login", json={"username": target_user, "password": f"WrongPwd{i}"})
+    
+        # In hardened app: 6th attempt is locked out with 429
+        # In original app: continues returning 401 without lockout (VULNERABLE)
+>       assert last_res.status_code == 429, f"No rate limiting or lockout! Status on 6th attempt: {last_res.status_code}"
+E       AssertionError: No rate limiting or lockout! Status on 6th attempt: 401
+E       assert 401 == 429
+E        +  where 401 = <WrapperTestResponse streamed [401 UNAUTHORIZED]>.status_code
+
+tests/test_api_security.py:227: AssertionError
+_______________ test_order_patch_mass_assignment_price_tampering _______________
+
+client = <FlaskClient <Flask 'orig_app'>>
+app_instance = <module 'orig_app' from '/Users/rafeshaikh/Downloads/G3_DabbaDash_Orders/app.py'>
+
+    def test_order_patch_mass_assignment_price_tampering(client, app_instance):
+        """
+        ATTACK: Customer modifies order total to ₹1 via PATCH /api/v1/orders/<id>.
+        EXPECTED: Total must NOT be updated.
+        """
+        token = get_auth_token(client, "priya", "Priya@123")
+        assert token is not None, "Failed to authenticate as priya"
+    
+        headers = {"Authorization": f"Bearer {token}"}
+        # Attempt to tamper with order #1 total
+        patch_payload = {"total": 1, "status": "Delivered"}
+        res = client.patch("/api/v1/orders/1", json=patch_payload, headers=headers)
+    
+        with app_instance.app.app_context():
+            db = app_instance.get_db()
+            order = db.execute("SELECT total FROM orders WHERE id=1").fetchone()
+            # In hardened app: total remains ₹210
+            # In original app: total becomes ₹1 (VULNERABLE)
+>           assert order["total"] != 1, f"Price tampering succeeded! Order total updated to {order['total']}"
+E           AssertionError: Price tampering succeeded! Order total updated to 1
+E           assert 1 != 1
+
+tests/test_api_security.py:254: AssertionError
+_______________________ test_password_policy_enforcement _______________________
+
+client = <FlaskClient <Flask 'orig_app'>>
+
+    def test_password_policy_enforcement(client):
+        """
+        ATTACK: Register user with weak/blocklisted password ('123' or 'password123').
+        EXPECTED: 400 Bad Request with password policy error.
+        """
+        # Test short password
+        res = client.post("/api/v1/register", json={
+            "username": "weak_user_1",
+            "password": "123",
+            "full_name": "Weak User"
+        })
+        # In hardened app: returns 400 Bad Request
+        # In original app: returns 201 Created (VULNERABLE)
+>       assert res.status_code == 400, f"Weak password accepted! Status: {res.status_code}"
+E       AssertionError: Weak password accepted! Status: 409
+E       assert 409 == 400
+E        +  where 409 = <WrapperTestResponse streamed [409 CONFLICT]>.status_code
+
+tests/test_api_security.py:275: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_api_security.py::test_sql_injection_login_blocked - Asserti...
+FAILED tests/test_api_security.py::test_order_bola_idor_blocked - AssertionEr...
+FAILED tests/test_api_security.py::test_mass_assignment_admin_role_blocked - ...
+FAILED tests/test_api_security.py::test_profile_property_level_data_exposure
+FAILED tests/test_api_security.py::test_function_level_authorization_admin_users
+FAILED tests/test_api_security.py::test_auth_forged_bearer_token_rejected - A...
+FAILED tests/test_api_security.py::test_rate_limiting_login_lockout - Asserti...
+FAILED tests/test_api_security.py::test_order_patch_mass_assignment_price_tampering
+FAILED tests/test_api_security.py::test_password_policy_enforcement - Asserti...
+========================= 9 failed, 1 passed in 0.09s ==========================

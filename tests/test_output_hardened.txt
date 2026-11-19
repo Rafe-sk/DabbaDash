@@ -1,0 +1,19 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.2.0, pluggy-1.7.0 -- /Users/rafeshaikh/Desktop/cybersecurity/AbhishekSir/G3_DabbaDash_Orders/venv/bin/python3.14
+cachedir: .pytest_cache
+rootdir: /Users/rafeshaikh/Desktop/cybersecurity/AbhishekSir/G3_DabbaDash_Orders
+plugins: platformdirs-4.14.7
+collecting ... collected 10 items
+
+tests/test_api_security.py::test_sql_injection_login_blocked PASSED      [ 10%]
+tests/test_api_security.py::test_order_bola_idor_blocked PASSED          [ 20%]
+tests/test_api_security.py::test_mass_assignment_admin_role_blocked PASSED [ 30%]
+tests/test_api_security.py::test_profile_property_level_data_exposure PASSED [ 40%]
+tests/test_api_security.py::test_function_level_authorization_admin_users PASSED [ 50%]
+tests/test_api_security.py::test_auth_missing_token_rejected PASSED      [ 60%]
+tests/test_api_security.py::test_auth_forged_bearer_token_rejected PASSED [ 70%]
+tests/test_api_security.py::test_rate_limiting_login_lockout PASSED      [ 80%]
+tests/test_api_security.py::test_order_patch_mass_assignment_price_tampering PASSED [ 90%]
+tests/test_api_security.py::test_password_policy_enforcement PASSED      [100%]
+
+============================== 10 passed in 0.42s ==============================
