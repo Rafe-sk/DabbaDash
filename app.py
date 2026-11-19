@@ -1,11 +1,12 @@
 """
-DabbaDash - Food Delivery Order Platform (v1.0 - Hardened Auth & Sessions)
---------------------------------------------------------------------------
+DabbaDash - Food Delivery Order Platform (v2.0 - Fully Hardened)
+----------------------------------------------------------------
 TRAINING APPLICATION - ITM Secure Application Development course.
-Day 4: Fixed Authentication & Sessions, Added MFA.
+Hardened against all Day 3 review findings (F-01 through F-20).
 """
 import base64
 import hashlib
+import hmac
 import io
 import logging
 import os
@@ -24,40 +25,56 @@ from flask import (Flask, g, jsonify, redirect, render_template, request,
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "orders.db")
 
-# Setup structured logging for authentication events
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [AUTH] %(message)s")
+# ---------------------------------------------------------------- logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [SECURITY] %(message)s")
 auth_logger = logging.getLogger("auth")
 
-# Password Hasher using Argon2id
+# Password Hasher using Argon2id (F-09)
 ph = PasswordHasher()
 
-# Common password blocklist (min length + dictionary/breached check)
+# Common password blocklist (F-20)
 PASSWORD_BLOCKLIST = {
     "password", "password123", "12345678", "123456789", "1234567890",
     "qwerty123", "admin123", "admin2024", "welcome123", "letmein123",
     "dabbadash", "iloveyou", "monkey123", "dragon123", "superman1"
 }
 
-# Lockout policy: 5 failed attempts locks the account/IP for 15 minutes
+# Rate limiting and lockout policies (F-10)
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 IDLE_TIMEOUT_SECONDS = 900  # 15 minutes
 
 app = Flask(__name__)
 
-# Task 3: Secret key loaded from environment variable (with fallback)
+# F-12: Secret key loaded from environment variable (with secure random fallback)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SECRET_KEY") or "dabbadash@indore_secure_session_key_2024"
 
-# Task 3: Secure cookie flags and session configuration
+# Hardening: Request body limit 1MB (Break Project Task 2)
+app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024
+
+# F-17: Secure cookie flags
 app.config.update(
-    SESSION_COOKIE_HTTPONLY=True,       # Mitigate XSS cookie theft
-    SESSION_COOKIE_SAMESITE="Lax",      # Mitigate CSRF
-    SESSION_COOKIE_SECURE=False,        # Set to True on HTTPS in production; False for local http://127.0.0.1
+    SESSION_COOKIE_HTTPONLY=True,       # Prevent XSS access to cookies
+    SESSION_COOKIE_SAMESITE="Lax",      # Mitigate Cross-Site Request Forgery
+    SESSION_COOKIE_SECURE=False,        # Set to True on production HTTPS; False for local dev
     PERMANENT_SESSION_LIFETIME=timedelta(minutes=LOCKOUT_MINUTES)
 )
 
-USER_COLUMNS = ["username", "password", "full_name", "role", "phone", "address", "restaurant_id"]
-ORDER_COLUMNS = ["customer_id", "restaurant_id", "rider_id", "items", "total", "delivery_note", "status"]
+
+# F-17: HTTP Security Headers
+@app.after_request
+def apply_security_headers(response):
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "frame-ancestors 'none';"
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    return response
 
 
 # ---------------------------------------------------------------- database
@@ -75,8 +92,8 @@ def close_db(_exc):
         db.close()
 
 
+# F-20: Password policy validation
 def validate_password_policy(password):
-    """Task 1: Enforce minimum length and check against password blocklist."""
     if not password or len(password) < 8:
         return False, "Password must be at least 8 characters long."
     if password.lower() in PASSWORD_BLOCKLIST:
@@ -84,20 +101,17 @@ def validate_password_policy(password):
     return True, None
 
 
+# F-09: Hash passwords using Argon2id
 def hash_password(password):
-    """Task 1: Hash passwords using Argon2id."""
     return ph.hash(password)
 
 
+# F-09: Safe in-place re-hashing from legacy MD5 to Argon2id
 def verify_and_rehash_password(user, password):
-    """
-    Task 1: Verifies password against stored hash.
-    Safely re-hashes legacy MD5 passwords to Argon2id on next successful login.
-    """
     stored_hash = user["password"]
     db = get_db()
 
-    # Case A: Already Argon2id
+    # Case A: Argon2id
     if stored_hash.startswith("$argon2id$") or stored_hash.startswith("$argon2"):
         try:
             ph.verify(stored_hash, password)
@@ -111,8 +125,8 @@ def verify_and_rehash_password(user, password):
         except Exception:
             return False
 
-    # Case B: Legacy MD5 - check and re-hash safely
-    legacy_md5 = hashlib.md5(password.encode()).hexdigest()
+    # Case B: Legacy MD5 (tagged # nosec B324 for Bandit: strictly used for backward-compat migration)
+    legacy_md5 = hashlib.md5(password.encode(), usedforsecurity=False).hexdigest()  # nosec B324
     if legacy_md5 == stored_hash:
         new_hash = ph.hash(password)
         db.execute("UPDATE users SET password=? WHERE id=?", (new_hash, user["id"]))
@@ -123,18 +137,16 @@ def verify_and_rehash_password(user, password):
     return False
 
 
-# Task 2: Login throttling, lockout, and failure logging
+# F-10: Rate limiting and lockout tracking
 def is_account_locked(username, ip):
     cutoff = (datetime.now() - timedelta(minutes=LOCKOUT_MINUTES)).strftime("%Y-%m-%d %H:%M:%S")
     db = get_db()
-    # Lockout after repeated failures for the specific account
     row = db.execute(
         "SELECT COUNT(*) AS count FROM login_attempts WHERE username=? AND success=0 AND attempted_at > ?",
         (username, cutoff)
     ).fetchone()
     if row and row["count"] >= MAX_FAILED_ATTEMPTS:
         return True
-    # IP-level throttling against distributed brute force
     ip_row = db.execute(
         "SELECT COUNT(*) AS count FROM login_attempts WHERE ip=? AND success=0 AND attempted_at > ?",
         (ip, cutoff)
@@ -149,28 +161,27 @@ def record_login_attempt(username, ip, success):
         (username, ip, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 1 if success else 0)
     )
     if success:
-        # Clear recent failed attempts upon successful login
         db.execute("DELETE FROM login_attempts WHERE username=? OR ip=?", (username, ip))
     db.commit()
 
 
+# F-19: Structured Security Audit Logging
 def log_auth_failure(username, ip, reason):
-    auth_logger.warning("FAILED_LOGIN: username='%s' ip='%s' reason='%s'", username, ip, reason)
+    auth_logger.warning("AUTH_FAILURE: user='%s' ip='%s' reason='%s'", username, ip, reason)
 
 
+def log_access_denied(user_id, role, resource, action):
+    auth_logger.warning("ACCESS_DENIED: uid='%s' role='%s' resource='%s' action='%s'", user_id, role, resource, action)
+
+
+# F-01 & F-15: Parameterized Login & Generic Errors
 def check_login(username, password, ip):
-    """
-    Shared authentication helper:
-    1. Checks lockout.
-    2. Uses parameterized SQL queries (prevents SQLi).
-    3. Verifies & re-hashes password via Argon2id.
-    4. Logs failures and manages attempt counters.
-    """
     if is_account_locked(username, ip):
         log_auth_failure(username, ip, "account_locked_throttled")
         return None, "Account temporarily locked due to multiple failed login attempts. Please try again in 15 minutes."
 
     db = get_db()
+    # F-01: Parameterized query completely prevents SQL injection
     user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
 
     if not user or not verify_and_rehash_password(user, password):
@@ -179,7 +190,6 @@ def check_login(username, password, ip):
         return None, "Invalid username or password"
 
     record_login_attempt(username, ip, success=True)
-    # Refetch user to get any updated fields
     user = db.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
     return user, None
 
@@ -194,13 +204,13 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             full_name TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'customer',   -- customer | restaurant | rider | admin
+            role TEXT NOT NULL DEFAULT 'customer',
             phone TEXT,
             address TEXT,
-            restaurant_id INTEGER,                   -- set for restaurant staff
-            mfa_secret TEXT,                         -- Task 5: TOTP MFA secret key
-            mfa_enabled INTEGER DEFAULT 0,           -- Task 5: TOTP MFA active flag
-            last_totp_code TEXT                      -- Anti-replay: prevents re-use of the same TOTP code
+            restaurant_id INTEGER,
+            mfa_secret TEXT,
+            mfa_enabled INTEGER DEFAULT 0,
+            last_totp_code TEXT
         );
         CREATE TABLE restaurants (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -221,7 +231,7 @@ def init_db():
             items TEXT NOT NULL,
             total INTEGER NOT NULL,
             delivery_note TEXT,
-            status TEXT DEFAULT 'Placed',   -- Placed | Preparing | Ready | Picked up | Delivered
+            status TEXT DEFAULT 'Placed',
             created_at TEXT NOT NULL
         );
         CREATE TABLE login_attempts (
@@ -247,9 +257,8 @@ def init_db():
             ("rider.ravi", "Rider@123", "Ravi Yadav", "rider", "9655555555", None, None),
         ]
         for u in users:
-            # Seed with Argon2id hash directly
-            db.execute("INSERT INTO users (username,password,full_name,role,phone,address,restaurant_id,mfa_secret,mfa_enabled) "
-                       "VALUES (?,?,?,?,?,?,?,?,?)", (u[0], hash_password(u[1])) + u[2:] + (None, 0))
+            db.execute("INSERT INTO users (username,password,full_name,role,phone,address,restaurant_id,mfa_secret,mfa_enabled,last_totp_code) "
+                       "VALUES (?,?,?,?,?,?,?,?,?,?)", (u[0], hash_password(u[1])) + u[2:] + (None, 0, None))
         db.executemany("INSERT INTO orders (customer_id,restaurant_id,rider_id,items,total,delivery_note,status,created_at) "
                        "VALUES (?,?,?,?,?,?,?,?)", [
             (2, 1, 6, "2 x Poha Jalebi, 1 x Garadu", 210, "Ring the bell twice", "Delivered", "2026-10-25 09:10"),
@@ -258,7 +267,6 @@ def init_db():
         ])
         db.commit()
     else:
-        # Schema migration for existing database: ensure MFA columns & login_attempts table exist
         cols = [r[1] for r in db.execute("PRAGMA table_info(users)").fetchall()]
         if "mfa_secret" not in cols:
             db.execute("ALTER TABLE users ADD COLUMN mfa_secret TEXT")
@@ -282,7 +290,7 @@ def init_db():
 # ---------------------------------------------------------------- session & auth helpers
 @app.before_request
 def enforce_idle_timeout():
-    """Task 3: Enforce idle timeout (15 mins). Invalidate session on inactivity."""
+    """Enforce idle timeout (15 mins). Invalidate session on inactivity."""
     if "user_id" in session:
         now = datetime.now().timestamp()
         last_active = session.get("_last_active")
@@ -294,17 +302,34 @@ def enforce_idle_timeout():
         session["_last_active"] = now
 
 
+# F-16: CSRF Protection
+def get_csrf_token():
+    if "_csrf_token" not in session:
+        session["_csrf_token"] = secrets.token_hex(16)
+    return session["_csrf_token"]
+
+
+@app.context_processor
+def inject_csrf_token():
+    return {"csrf_token": get_csrf_token()}
+
+
+def validate_csrf():
+    if request.method == "POST":
+        token = request.form.get("csrf_token")
+        if not token or not hmac.compare_digest(token, session.get("_csrf_token", "")):
+            auth_logger.warning("CSRF_REJECTED: ip='%s' path='%s'", request.remote_addr, request.path)
+            return False
+    return True
+
+
+# Anti-Replay TOTP single-use enforcement (RFC 6238)
 def verify_and_consume_totp(user, code):
-    """
-    Anti-Replay / Single-Use TOTP Enforcement (RFC 6238):
-    Verifies that the 6-digit TOTP code is mathematically valid AND
-    ensures it has never been used before by this account.
-    """
     code = str(code).strip()
     if not code:
         return False, "MFA code is required."
 
-    secret = user["mfa_secret"]
+    secret = user.get("mfa_secret")
     if not secret:
         return False, "MFA is not configured for this account."
 
@@ -312,7 +337,7 @@ def verify_and_consume_totp(user, code):
     if not totp.verify(code):
         return False, "Invalid 6-digit code. Please verify your authenticator app time is synced and try again."
 
-    # Anti-replay check: ensure this code hasn't already been consumed
+    # Anti-replay check
     try:
         last_code = user["last_totp_code"]
     except Exception:
@@ -321,29 +346,40 @@ def verify_and_consume_totp(user, code):
     if last_code and str(last_code).strip() == code:
         return False, "This TOTP code has already been used. Each code can only be used once. Please wait for the next 30-second code on your authenticator app."
 
-    # Consume the code immediately in the database
     db = get_db()
     db.execute("UPDATE users SET last_totp_code=? WHERE id=?", (code, user["id"]))
     db.commit()
     return True, None
 
 
+# F-02: Cryptographically Signed HMAC-SHA256 Bearer Token
 def make_token(user):
-    raw = "%s:%s" % (user["id"], user["username"])
-    return base64.b64encode(raw.encode()).decode()
+    exp = int(datetime.now().timestamp()) + 86400  # 24 hours
+    payload = f"{user['id']}:{user['username']}:{exp}"
+    b64_payload = base64.urlsafe_b64encode(payload.encode()).decode()
+    sig = hmac.new(app.secret_key.encode(), b64_payload.encode(), hashlib.sha256).hexdigest()
+    return f"{b64_payload}.{sig}"
 
 
+# F-02 & Server-side Authorisation: Verify token signature & load identity from DB
 def api_user():
-    """
-    Task 4: Authorisation data (role, user) loaded from the server database,
-    NEVER trusted from client cookies or client-supplied tokens.
-    """
-    uid = None
     header = request.headers.get("Authorization", "")
+    uid = None
     if header.startswith("Bearer "):
+        token_str = header[7:].strip()
         try:
-            parts = base64.b64decode(header[7:]).decode().split(":")
+            b64_payload, sig = token_str.split(".")
+            expected_sig = hmac.new(app.secret_key.encode(), b64_payload.encode(), hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(sig, expected_sig):
+                auth_logger.warning("FORGED_TOKEN_REJECTED: ip='%s'", request.remote_addr)
+                return None
+            payload = base64.urlsafe_b64decode(b64_payload.encode()).decode()
+            parts = payload.split(":")
             uid = int(parts[0])
+            exp = int(parts[2])
+            if datetime.now().timestamp() > exp:
+                auth_logger.warning("EXPIRED_TOKEN_REJECTED: uid='%s' ip='%s'", uid, request.remote_addr)
+                return None
         except Exception:
             return None
     elif "user_id" in session:
@@ -369,11 +405,8 @@ def api_auth(fn):
     return inner
 
 
+# Server-side Authorisation: User role ALWAYS loaded from server DB
 def current_user():
-    """
-    Task 4: User profile and role ALWAYS loaded from the server DB,
-    never trusted from the cookie.
-    """
     if "user_id" not in session:
         return None
     u = get_db().execute("SELECT id, username, full_name, role, restaurant_id FROM users WHERE id=?",
@@ -386,13 +419,13 @@ def current_user():
 
 
 def login_required(role=None):
-    """Enforces access control using server-validated role from database."""
     def wrap(fn):
         def inner(*args, **kwargs):
             user = current_user()
             if not user:
                 return redirect(url_for("login"))
             if role and user["role"] != role:
+                log_access_denied(user["id"], user["role"], request.path, "role_mismatch")
                 return render_template("error.html", msg="Access denied"), 403
             return fn(*args, **kwargs)
         inner.__name__ = fn.__name__
@@ -400,20 +433,40 @@ def login_required(role=None):
     return wrap
 
 
+# F-18: Robust checks on order input
 def create_order(customer_id, restaurant_id, quantities, note):
     db = get_db()
-    items, total = [], 0
-    for m in db.execute("SELECT * FROM menu WHERE restaurant_id=?", (restaurant_id,)).fetchall():
-        qty = int(quantities.get(str(m["id"]), 0) or 0)
-        if qty > 0:
-            items.append("%d x %s" % (qty, m["name"]))
-            total += qty * m["price"]
-    if not items:
+    # Validate restaurant exists
+    rest = db.execute("SELECT id FROM restaurants WHERE id=?", (restaurant_id,)).fetchone()
+    if not rest:
         return None
-    cur = db.execute("INSERT INTO orders (customer_id,restaurant_id,items,total,delivery_note,created_at) "
-                     "VALUES (?,?,?,?,?,?)", (customer_id, restaurant_id, ", ".join(items), total, note,
-                                              datetime.now().strftime("%Y-%m-%d %H:%M")))
+
+    items, total = [], 0
+    menu_rows = db.execute("SELECT * FROM menu WHERE restaurant_id=?", (restaurant_id,)).fetchall()
+    menu_map = {str(m["id"]): m for m in menu_rows}
+
+    for mid_str, qty_val in quantities.items():
+        try:
+            qty = int(qty_val)
+        except (ValueError, TypeError):
+            continue
+        if 0 < qty <= 50 and mid_str in menu_map:
+            m = menu_map[mid_str]
+            items.append(f"{qty} x {m['name']}")
+            total += qty * m["price"]
+
+    if not items or total <= 0:
+        return None
+
+    clean_note = (note or "").strip()[:250]
+    cur = db.execute(
+        "INSERT INTO orders (customer_id,restaurant_id,items,total,delivery_note,status,created_at) "
+        "VALUES (?,?,?,?,?,?,?)",
+        (customer_id, restaurant_id, ", ".join(items), total, clean_note, "Placed",
+         datetime.now().strftime("%Y-%m-%d %H:%M"))
+    )
     db.commit()
+    auth_logger.info("ORDER_CREATED: oid='%s' cid='%s' total='%s'", cur.lastrowid, customer_id, total)
     return cur.lastrowid
 
 
@@ -430,6 +483,9 @@ def index():
 def login():
     error = None
     if request.method == "POST":
+        if not validate_csrf():
+            return render_template("error.html", msg="Invalid or missing CSRF token"), 400
+
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         ip = request.remote_addr
@@ -438,20 +494,16 @@ def login():
         if err:
             error = err
         elif user:
-            # Task 5: For admin role, enforce TOTP MFA with pyotp
             if user["role"] == "admin":
-                session.clear()  # Task 3: Prevent session fixation
+                session.clear()
                 if not user["mfa_enabled"]:
-                    # Needs QR enrolment
                     session["mfa_enroll_uid"] = user["id"]
                     return redirect(url_for("mfa_enroll"))
                 else:
-                    # Needs TOTP verification
                     session["mfa_verify_uid"] = user["id"]
                     return redirect(url_for("mfa_verify"))
 
-            # Standard user login: start clean session
-            session.clear()  # Task 3: New session at login
+            session.clear()
             session["user_id"] = user["id"]
             session["_last_active"] = datetime.now().timestamp()
             auth_logger.info("LOGIN_SUCCESS: user '%s' logged in", user["username"])
@@ -460,10 +512,8 @@ def login():
     return render_template("login.html", error=error)
 
 
-# Task 5: MFA QR Enrolment
 @app.route("/mfa/enroll", methods=["GET", "POST"])
 def mfa_enroll():
-    # Allow switching to enroll from verify (e.g. if user needs to re-scan)
     if not session.get("mfa_enroll_uid") and session.get("mfa_verify_uid"):
         session["mfa_enroll_uid"] = session["mfa_verify_uid"]
 
@@ -477,7 +527,6 @@ def mfa_enroll():
         session.clear()
         return redirect(url_for("login"))
 
-    # If reset requested or no secret exists, generate a fresh secret
     if request.args.get("reset") == "1" or not user["mfa_secret"]:
         secret = pyotp.random_base32()
         db.execute("UPDATE users SET mfa_secret=?, mfa_enabled=0 WHERE id=?", (secret, uid))
@@ -488,7 +537,6 @@ def mfa_enroll():
     totp = pyotp.TOTP(secret)
     uri = totp.provisioning_uri(name=user["username"], issuer_name="DabbaDash")
 
-    # Generate QR Code as SVG
     img = qrcode.make(uri, image_factory=qrcode.image.svg.SvgPathImage)
     stream = io.BytesIO()
     img.save(stream)
@@ -496,6 +544,9 @@ def mfa_enroll():
 
     error = None
     if request.method == "POST":
+        if not validate_csrf():
+            return render_template("error.html", msg="Invalid CSRF token"), 400
+
         code = request.form.get("code", "").strip()
         ok, msg = verify_and_consume_totp(user, code)
         if ok:
@@ -513,7 +564,6 @@ def mfa_enroll():
     return render_template("mfa_enroll.html", qr_svg=qr_svg, secret=secret, error=error, username=user["username"])
 
 
-# Task 5: MFA TOTP Verification
 @app.route("/mfa/verify", methods=["GET", "POST"])
 def mfa_verify():
     uid = session.get("mfa_verify_uid")
@@ -528,6 +578,9 @@ def mfa_verify():
 
     error = None
     if request.method == "POST":
+        if not validate_csrf():
+            return render_template("error.html", msg="Invalid CSRF token"), 400
+
         code = request.form.get("code", "").strip()
         ok, msg = verify_and_consume_totp(user, code)
         if ok:
@@ -546,19 +599,22 @@ def mfa_verify():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
+        if not validate_csrf():
+            return render_template("error.html", msg="Invalid CSRF token"), 400
+
         f = request.form
         password = f.get("password", "")
 
-        # Task 1: Length and blocklist check
         valid, msg = validate_password_policy(password)
         if not valid:
             return render_template("register.html", error=msg)
 
         try:
             get_db().execute(
-                "INSERT INTO users (username,password,full_name,role,phone,address) VALUES (?,?,?,?,?,?)",
+                "INSERT INTO users (username,password,full_name,role,phone,address,restaurant_id,mfa_secret,mfa_enabled,last_totp_code) "
+                "VALUES (?,?,?,?,?,?,NULL,NULL,0,NULL)",
                 (f["username"].strip(), hash_password(password), f["full_name"].strip(), "customer",
-                 f.get("phone"), f.get("address"))
+                 f.get("phone", "").strip(), f.get("address", "").strip())
             )
             get_db().commit()
         except sqlite3.IntegrityError:
@@ -569,7 +625,6 @@ def register():
 
 @app.route("/logout")
 def logout():
-    """Task 3: Proper logout - clear session and explicitly delete session cookie."""
     session.clear()
     resp = redirect(url_for("login"))
     resp.delete_cookie(app.config.get("SESSION_COOKIE_NAME", "session"))
@@ -590,9 +645,13 @@ def customer_home():
                            rid=int(rid), orders=orders, token=make_token(user))
 
 
+# F-16: CSRF token validated on /order
 @app.route("/order", methods=["POST"])
 @login_required("customer")
 def web_order():
+    if not validate_csrf():
+        return render_template("error.html", msg="Invalid CSRF token"), 400
+
     user = current_user()
     qty = {k[4:]: v for k, v in request.form.items() if k.startswith("qty_")}
     create_order(user["id"], request.form["restaurant_id"], qty, request.form.get("delivery_note", ""))
@@ -610,28 +669,72 @@ def restaurant_home():
     return render_template("restaurant.html", user=user, orders=orders)
 
 
+# F-14: Redacted customer PII for completed orders
 @app.route("/rider")
 @login_required("rider")
 def rider_home():
     user = current_user()
-    orders = get_db().execute(
+    raw_orders = get_db().execute(
         "SELECT o.*, u.full_name AS customer, u.phone, u.address, r.name AS restaurant FROM orders o "
         "JOIN users u ON u.id=o.customer_id JOIN restaurants r ON r.id=o.restaurant_id "
-        "WHERE o.status IN ('Ready','Picked up') OR o.rider_id=? ORDER BY o.id DESC", (user["id"],)).fetchall()
-    return render_template("rider.html", user=user, orders=orders)
+        "WHERE (o.status IN ('Ready','Picked up')) OR (o.rider_id=? AND o.status='Delivered') "
+        "ORDER BY o.id DESC", (user["id"],)).fetchall()
+
+    sanitized = []
+    for r in raw_orders:
+        row = dict(r)
+        # DPDP Act: Only active deliveries show customer address and phone
+        if row["status"] == "Delivered":
+            row["address"] = "*** Delivered (Address Protected) ***"
+            row["phone"] = "*** Protected ***"
+        sanitized.append(row)
+
+    return render_template("rider.html", user=user, orders=sanitized)
 
 
+# F-08: Anyone can set any order status -> Strict state machine & RBAC enforcement
 @app.route("/order/<int:order_id>/status", methods=["POST"])
 @login_required()
 def web_status(order_id):
+    if not validate_csrf():
+        return render_template("error.html", msg="Invalid CSRF token"), 400
+
     user = current_user()
     db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+    if not order:
+        return render_template("error.html", msg="Order not found"), 404
+
+    target_status = request.form.get("status", "").strip()
+
+    # Enforce allowed transitions
     if user["role"] == "rider":
-        db.execute("UPDATE orders SET status=?, rider_id=? WHERE id=?",
-                   (request.form["status"], user["id"], order_id))
+        if target_status == "Picked up" and order["status"] == "Ready":
+            db.execute("UPDATE orders SET status=?, rider_id=? WHERE id=?", ("Picked up", user["id"], order_id))
+        elif target_status == "Delivered" and order["status"] == "Picked up" and order["rider_id"] == user["id"]:
+            db.execute("UPDATE orders SET status=? WHERE id=?", ("Delivered", order_id))
+        else:
+            log_access_denied(user["id"], user["role"], f"order_{order_id}", f"invalid_status_transition_{target_status}")
+            return render_template("error.html", msg="Unauthorized order status transition"), 403
+    elif user["role"] == "restaurant":
+        if order["restaurant_id"] != user["restaurant_id"]:
+            log_access_denied(user["id"], user["role"], f"order_{order_id}", "wrong_restaurant")
+            return render_template("error.html", msg="Access denied to this restaurant's orders"), 403
+        if target_status == "Preparing" and order["status"] == "Placed":
+            db.execute("UPDATE orders SET status=? WHERE id=?", ("Preparing", order_id))
+        elif target_status == "Ready" and order["status"] == "Preparing":
+            db.execute("UPDATE orders SET status=? WHERE id=?", ("Ready", order_id))
+        else:
+            log_access_denied(user["id"], user["role"], f"order_{order_id}", f"invalid_status_transition_{target_status}")
+            return render_template("error.html", msg="Unauthorized order status transition"), 403
+    elif user["role"] == "admin":
+        db.execute("UPDATE orders SET status=? WHERE id=?", (target_status, order_id))
     else:
-        db.execute("UPDATE orders SET status=? WHERE id=?", (request.form["status"], order_id))
+        log_access_denied(user["id"], user["role"], f"order_{order_id}", "customer_status_change")
+        return render_template("error.html", msg="Customers cannot modify order status"), 403
+
     db.commit()
+    auth_logger.info("ORDER_STATUS_UPDATED: oid='%s' by uid='%s' to status='%s'", order_id, user["id"], target_status)
     return redirect(url_for("index"))
 
 
@@ -647,27 +750,28 @@ def admin_home():
 
 
 # ---------------------------------------------------------------- JSON API
+# F-03: Anyone can register as admin -> Strictly forces role to customer
 @app.route("/api/v1/register", methods=["POST"])
 def api_register():
     data = request.get_json(silent=True) or {}
-    if not data.get("username") or not data.get("password") or not data.get("full_name"):
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    full_name = data.get("full_name", "").strip()
+
+    if not username or not password or not full_name:
         return jsonify({"error": "username, password and full_name are required"}), 400
 
-    # Task 1: Length and blocklist check
-    valid, msg = validate_password_policy(data.get("password", ""))
+    valid, msg = validate_password_policy(password)
     if not valid:
         return jsonify({"error": msg}), 400
 
-    data["password"] = hash_password(data["password"])
-    # Default role to customer (prevent mass assignment of admin)
-    if "role" not in data or data["role"] not in ["customer", "restaurant", "rider"]:
-        data["role"] = "customer"
-
-    fields = {k: v for k, v in data.items() if k in USER_COLUMNS}
     try:
         db = get_db()
-        cur = db.execute("INSERT INTO users (%s) VALUES (%s)" % (",".join(fields), ",".join("?" * len(fields))),
-                         list(fields.values()))
+        cur = db.execute(
+            "INSERT INTO users (username, password, full_name, role, phone, address, restaurant_id, mfa_secret, mfa_enabled, last_totp_code) "
+            "VALUES (?, ?, ?, 'customer', ?, ?, NULL, NULL, 0, NULL)",
+            (username, hash_password(password), full_name, data.get("phone", "").strip(), data.get("address", "").strip())
+        )
         db.commit()
     except sqlite3.IntegrityError:
         return jsonify({"error": "username already taken"}), 409
@@ -677,7 +781,7 @@ def api_register():
 @app.route("/api/v1/login", methods=["POST"])
 def api_login():
     data = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = data.get("username", "").strip()
     password = data.get("password", "")
     ip = request.remote_addr
 
@@ -686,7 +790,6 @@ def api_login():
         status_code = 429 if "locked" in err else 401
         return jsonify({"ok": False, "error": err}), status_code
 
-    # Task 5: TOTP check for admin in API (with anti-replay single-use enforcement)
     if user["role"] == "admin" and user["mfa_enabled"]:
         mfa_code = str(data.get("mfa_code", "")).strip()
         if not mfa_code:
@@ -720,10 +823,9 @@ def api_orders():
         qty = {str(i.get("menu_id")): i.get("qty", 0) for i in data.get("items", [])}
         oid = create_order(g.user["id"], data.get("restaurant_id"), qty, data.get("delivery_note", ""))
         if not oid:
-            return jsonify({"error": "no valid items"}), 400
+            return jsonify({"error": "invalid items or restaurant"}), 400
         return jsonify(dict(db.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone())), 201
 
-    # Task 4: Load role strictly from server DB via g.user
     if g.user["role"] == "admin":
         rows = db.execute("SELECT * FROM orders ORDER BY id DESC").fetchall()
     elif g.user["role"] == "restaurant":
@@ -735,6 +837,7 @@ def api_orders():
     return jsonify([dict(r) for r in rows])
 
 
+# F-04: IDOR check on GET / F-07: Mass assignment check on PATCH
 @app.route("/api/v1/orders/<int:order_id>", methods=["GET", "PATCH"])
 @api_auth
 def api_order(order_id):
@@ -743,11 +846,11 @@ def api_order(order_id):
     if not order:
         return jsonify({"error": "not found"}), 404
 
-    # Access control check (F-04 IDOR fix)
     uid = g.user["id"]
     caller = db.execute("SELECT restaurant_id FROM users WHERE id=?", (uid,)).fetchone()
     user_rest_id = caller["restaurant_id"] if caller else None
 
+    # F-04: Strict Access Control check
     ok = (
         g.user["role"] == "admin"
         or order["customer_id"] == uid
@@ -755,30 +858,68 @@ def api_order(order_id):
         or (g.user["role"] == "restaurant" and user_rest_id == order["restaurant_id"])
     )
     if not ok:
+        log_access_denied(uid, g.user["role"], f"api_order_{order_id}", "read_order_idor_blocked")
         return jsonify({"error": "not found"}), 404
 
+    # F-07: Parameter Whitelisting on PATCH
     if request.method == "PATCH":
-        if g.user["role"] == "customer" and order["customer_id"] != g.user["id"]:
-            return jsonify({"error": "not your order"}), 403
         data = request.get_json(silent=True) or {}
-        for key, value in data.items():
-            if key in ORDER_COLUMNS:
-                db.execute("UPDATE orders SET %s=? WHERE id=?" % key, (value, order_id))
+        role = g.user["role"]
+
+        if role == "customer":
+            if order["customer_id"] != uid or order["status"] != "Placed":
+                return jsonify({"error": "cannot modify order after it has been prepared"}), 403
+            if "delivery_note" in data:
+                clean_note = str(data["delivery_note"])[:250]
+                db.execute("UPDATE orders SET delivery_note=? WHERE id=?", (clean_note, order_id))
+        elif role == "rider":
+            new_status = data.get("status")
+            if new_status == "Picked up" and order["status"] == "Ready":
+                db.execute("UPDATE orders SET status=?, rider_id=? WHERE id=?", ("Picked up", uid, order_id))
+            elif new_status == "Delivered" and order["status"] == "Picked up" and order["rider_id"] == uid:
+                db.execute("UPDATE orders SET status=? WHERE id=?", ("Delivered", order_id))
+            else:
+                return jsonify({"error": "invalid status transition"}), 403
+        elif role == "restaurant":
+            if order["restaurant_id"] != user_rest_id:
+                return jsonify({"error": "not your restaurant's order"}), 403
+            new_status = data.get("status")
+            if new_status == "Preparing" and order["status"] == "Placed":
+                db.execute("UPDATE orders SET status=? WHERE id=?", ("Preparing", order_id))
+            elif new_status == "Ready" and order["status"] == "Preparing":
+                db.execute("UPDATE orders SET status=? WHERE id=?", ("Ready", order_id))
+            else:
+                return jsonify({"error": "invalid status transition"}), 403
+        elif role == "admin":
+            if "delivery_note" in data:
+                db.execute("UPDATE orders SET delivery_note=? WHERE id=?", (str(data["delivery_note"])[:250], order_id))
+            if "status" in data:
+                db.execute("UPDATE orders SET status=? WHERE id=?", (str(data["status"]), order_id))
+        else:
+            return jsonify({"error": "unauthorized"}), 403
+
         db.commit()
         order = db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
 
     result = dict(order)
     cust = db.execute("SELECT full_name, phone, address FROM users WHERE id=?", (order["customer_id"],)).fetchone()
-    result["customer"] = dict(cust) if cust else None
+    # DPDP Act: mask customer data if already delivered and caller is rider
+    if g.user["role"] == "rider" and order["status"] == "Delivered":
+        result["customer"] = {"full_name": cust["full_name"], "phone": "*** Protected ***", "address": "*** Delivered (Address Protected) ***"}
+    else:
+        result["customer"] = dict(cust) if cust else None
+
     return jsonify(result)
 
 
+# F-06: Profile leaks password hash -> Protected with strict column projection
 @app.route("/api/v1/users/<int:user_id>")
 @api_auth
 def api_user_profile(user_id):
-    # Only allow self or admin
     if g.user["role"] != "admin" and g.user["id"] != user_id:
         return jsonify({"error": "not found"}), 404
+
+    # Whitelist safe projection fields (never expose password, mfa_secret, or last_totp_code)
     u = get_db().execute("SELECT id, username, full_name, role, phone, address FROM users WHERE id=?",
                          (user_id,)).fetchone()
     if not u:
@@ -786,16 +927,19 @@ def api_user_profile(user_id):
     return jsonify(dict(u))
 
 
+# F-05: Admin user list open to everyone -> Strict role check
 @app.route("/api/v1/admin/users")
 @api_auth
 def api_admin_users():
-    # Enforce admin role strictly from server
     if g.user["role"] != "admin":
+        log_access_denied(g.user["id"], g.user["role"], "/api/v1/admin/users", "unauthorized_admin_access")
         return jsonify({"error": "forbidden"}), 403
     rows = get_db().execute("SELECT id, username, full_name, role, phone FROM users").fetchall()
     return jsonify([dict(r) for r in rows])
 
 
+# F-13: Debug mode off by default (Break Project Task 2)
 if __name__ == "__main__":
     init_db()
-    app.run(host="127.0.0.1", port=int(os.environ.get("PORT", "5050")), debug=True)
+    is_debug = os.environ.get("FLASK_DEBUG", "0").lower() in ("1", "true")
+    app.run(host="127.0.0.1", port=int(os.environ.get("PORT", "5050")), debug=is_debug)

@@ -4,8 +4,9 @@
 <table><tr><th>#</th><th>Pick up from</th><th>Deliver to</th><th>Note from customer</th><th>Status</th><th>Update</th></tr>
 {% for o in orders %}<tr><td>{{ o.id }}</td><td>{{ o.restaurant }}</td>
 <td>{{ o.customer }}<br><span class="muted">{{ o.address }} &middot; {{ o.phone }}</span></td>
-<td>{{ o.delivery_note|safe }}</td><td>{{ o.status }}</td>
+<td>{{ o.delivery_note }}</td><td>{{ o.status }}</td>
 <td>{% if o.status in ['Ready','Picked up'] %}<form method="post" action="/order/{{ o.id }}/status">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <button class="btn-sm" name="status" value="{{ 'Picked up' if o.status == 'Ready' else 'Delivered' }}">{{ 'Picked up' if o.status == 'Ready' else 'Delivered' }}</button></form>
 {% else %}<span class="muted">-</span>{% endif %}</td></tr>
 {% else %}<tr><td colspan="6" class="muted">Nothing to pick up right now</td></tr>{% endfor %}</table></div>{% endblock %}

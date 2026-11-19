@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Pre-Commit Hook: Bandit Static Analysis & Secret Scanning
+# ITM Secure Application Development - Break Project
+# ==============================================================================
+
+set -e
+
+echo "[PRE-COMMIT] Running security pre-commit checks..."
+
+# 1. Secret Scanning (gitleaks or regex pattern check on staged application code)
+echo "[PRE-COMMIT] 1/2: Checking for committed secrets in application code..."
+if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks detect --staged --verbose
+else
+    # Fallback secret scanner: inspect staged files excluding git hook definitions
+    STAGED_DIFF=$(git diff --cached -- ':!.githooks/*' ':!.git/*')
+    KEY_PATTERN="AIzaSy[0-9A-Za-z_-]{33}"
+    PRIV_KEY_PATTERN="BEGIN (RSA|EC|OPENSSH) PRIVATE KEY"
+    if echo "$STAGED_DIFF" | grep -Ei "($KEY_PATTERN|$PRIV_KEY_PATTERN)" >/dev/null 2>&1; then
+        echo "❌ [SECURITY ALERT] High-entropy secret / API key detected in staged diff!"
+        echo "Please remove the secret and load it from environment variables."
+        exit 1
+    fi
+    echo "  ✓ No plain API keys or private keys found in staged application code."
+fi
+
+# 2. Bandit AST Security Scanner
+echo "[PRE-COMMIT] 2/2: Running Bandit Python Security Scanner..."
+BANDIT_BIN="./venv/bin/bandit"
+
+if [ -f "$BANDIT_BIN" ]; then
+    $BANDIT_BIN -r app.py --quiet
+    echo "  ✓ Bandit passed with 0 security issues."
+else
+    echo "  ⚠️ Bandit binary not found in ./venv/bin/bandit. Skipping Bandit check."
+fi
+
+echo "✅ [PRE-COMMIT] All security checks passed! Commit allowed."
+exit 0

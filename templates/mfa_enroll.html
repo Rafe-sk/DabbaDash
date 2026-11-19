@@ -13,6 +13,7 @@
 <p class="muted" style="font-size:13px;">Can't scan? Enter key manually:<br><code style="font-size:14px;letter-spacing:1px;font-weight:bold;">{{ secret }}</code></p>
 {% if error %}<p class="err">{{ error }}</p>{% endif %}
 <form method="post" style="margin-top:20px;text-align:left;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <label>Enter 6-digit verification code from app</label>
   <input name="code" type="text" placeholder="123456" pattern="[0-9]{6}" maxlength="6" autofocus required>
   <button style="width:100%;">Verify & Enable MFA</button>

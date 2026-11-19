@@ -3,6 +3,7 @@
 <h2>Customer registration</h2>
 {% if error %}<p class="err">{{ error }}</p>{% endif %}
 <form method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <label>Full name</label><input name="full_name" required>
 <label>Username</label><input name="username" required>
 <label>Password (min 8 characters)</label><input name="password" type="password" minlength="8" required>
