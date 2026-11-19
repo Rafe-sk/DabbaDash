@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block body %}
+<div class="card" style="max-width:440px;margin:30px auto">
+<h2>Customer registration</h2>
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+<form method="post">
+<label>Full name</label><input name="full_name" required>
+<label>Username</label><input name="username" required>
+<label>Password</label><input name="password" type="password" required>
+<label>Mobile</label><input name="phone">
+<label>Delivery address</label><textarea name="address" rows="2"></textarea>
+<button>Register</button></form></div>{% endblock %}

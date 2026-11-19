@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block body %}
+<div class="card"><h2>Hungry, {{ user.name }}?</h2>
+<p class="muted">Your mobile app API token: <code>{{ token }}</code></p></div>
+<div class="card"><h3>Order food</h3>
+<p class="tabs">{% for r in restaurants %}<a href="/customer?restaurant={{ r.id }}" class="{{ 'on' if r.id == rid }}">{{ r.name }}</a>{% endfor %}</p>
+<form method="post" action="/order"><input type="hidden" name="restaurant_id" value="{{ rid }}">
+<table><tr><th>Item</th><th>Price (&#8377;)</th><th>Qty</th></tr>
+{% for m in menu %}<tr><td>{{ m.name }}</td><td>{{ m.price }}</td><td><input class="qty" type="number" min="0" name="qty_{{ m.id }}" value="0"></td></tr>{% endfor %}</table>
+<label>Note for the rider</label><input name="delivery_note" placeholder="e.g. Leave at the gate">
+<button>Place order</button></form></div>
+<div class="card"><h3>My orders</h3>
+<table><tr><th>#</th><th>Restaurant</th><th>Items</th><th>Total (&#8377;)</th><th>Status</th><th>Placed</th></tr>
+{% for o in orders %}<tr><td>{{ o.id }}</td><td>{{ o.restaurant }}</td><td>{{ o.items }}</td><td>{{ o.total }}</td><td>{{ o.status }}</td><td>{{ o.created_at }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No orders yet</td></tr>{% endfor %}</table></div>{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block body %}
+<div class="card"><h2>Kitchen &ndash; {{ user.name }}</h2></div>
+<div class="card"><h3>Incoming orders</h3>
+<table><tr><th>#</th><th>Customer</th><th>Items</th><th>Total (&#8377;)</th><th>Status</th><th>Update</th></tr>
+{% for o in orders %}<tr><td>{{ o.id }}</td><td>{{ o.customer }}</td><td>{{ o.items }}</td><td>{{ o.total }}</td><td>{{ o.status }}</td>
+<td>{% if o.status in ['Placed','Preparing'] %}<form method="post" action="/order/{{ o.id }}/status">
+<button class="btn-sm" name="status" value="{{ 'Preparing' if o.status == 'Placed' else 'Ready' }}">Mark {{ 'Preparing' if o.status == 'Placed' else 'Ready' }}</button></form>
+{% else %}<span class="muted">-</span>{% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No orders</td></tr>{% endfor %}</table></div>{% endblock %}
