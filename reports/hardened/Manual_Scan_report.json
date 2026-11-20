@@ -1,0 +1,1121 @@
+{
+	"@programName": "ZAP",
+	"@version": "2.17.0",
+	"@generated": "Fri, 20 Nov 2026 11:42:45",
+	"created": "2026-11-20T06:12:45.984577Z",
+	"insights":[
+		{
+			"level": "Medium",
+			"reason": "Exceeded Low",
+			"site": "",
+			"key": "insight.memory.usage",
+			"description": "Percentage of memory used",
+			"statistic": "80"
+		},
+		{
+			"level": "Low",
+			"reason": "Warning",
+			"site": "",
+			"key": "insight.log.error",
+			"description": "ZAP errors logged - see the zap.log file for details",
+			"statistic": "4"
+		},
+		{
+			"level": "Low",
+			"reason": "Warning",
+			"site": "",
+			"key": "insight.log.warn",
+			"description": "ZAP warnings logged - see the zap.log file for details",
+			"statistic": "5"
+		},
+		{
+			"level": "Low",
+			"reason": "Exceeded High",
+			"site": "http://127.0.0.1:5050",
+			"key": "insight.code.5xx",
+			"description": "Percentage of responses with status code 5xx",
+			"statistic": "50"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://127.0.0.1:5050",
+			"key": "insight.code.2xx",
+			"description": "Percentage of responses with status code 2xx",
+			"statistic": "25"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://127.0.0.1:5050",
+			"key": "insight.code.3xx",
+			"description": "Percentage of responses with status code 3xx",
+			"statistic": "24"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://127.0.0.1:5050",
+			"key": "insight.code.4xx",
+			"description": "Percentage of responses with status code 4xx",
+			"statistic": "1"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://127.0.0.1:5050",
+			"key": "insight.endpoint.ctype.text/html",
+			"description": "Percentage of endpoints with content type text/html",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://127.0.0.1:5050",
+			"key": "insight.endpoint.method.GET",
+			"description": "Percentage of endpoints with method GET",
+			"statistic": "51"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://127.0.0.1:5050",
+			"key": "insight.endpoint.method.POST",
+			"description": "Percentage of endpoints with method POST",
+			"statistic": "48"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://127.0.0.1:5050",
+			"key": "insight.endpoint.total",
+			"description": "Count of total endpoints",
+			"statistic": "27"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://edge-http.microsoft.com",
+			"key": "insight.code.5xx",
+			"description": "Percentage of responses with status code 5xx",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://edge-http.microsoft.com",
+			"key": "insight.endpoint.method.GET",
+			"description": "Percentage of endpoints with method GET",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://edge-http.microsoft.com",
+			"key": "insight.endpoint.total",
+			"description": "Count of total endpoints",
+			"statistic": "1"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://edge-http.microsoft.com",
+			"key": "insight.response.slow",
+			"description": "Percentage of slow responses",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://edgeupdates.microsoft.com",
+			"key": "insight.code.2xx",
+			"description": "Percentage of responses with status code 2xx",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://edgeupdates.microsoft.com",
+			"key": "insight.endpoint.ctype.application/json",
+			"description": "Percentage of endpoints with content type application/json",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://edgeupdates.microsoft.com",
+			"key": "insight.endpoint.method.GET",
+			"description": "Percentage of endpoints with method GET",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://edgeupdates.microsoft.com",
+			"key": "insight.endpoint.total",
+			"description": "Count of total endpoints",
+			"statistic": "1"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://edgeupdates.microsoft.com",
+			"key": "insight.response.slow",
+			"description": "Percentage of slow responses",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://editor.svc.cloud.microsoft",
+			"key": "insight.code.2xx",
+			"description": "Percentage of responses with status code 2xx",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://editor.svc.cloud.microsoft",
+			"key": "insight.endpoint.ctype.application/json",
+			"description": "Percentage of endpoints with content type application/json",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://editor.svc.cloud.microsoft",
+			"key": "insight.endpoint.method.POST",
+			"description": "Percentage of endpoints with method POST",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://editor.svc.cloud.microsoft",
+			"key": "insight.endpoint.total",
+			"description": "Count of total endpoints",
+			"statistic": "1"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://editor.svc.cloud.microsoft",
+			"key": "insight.response.slow",
+			"description": "Percentage of slow responses",
+			"statistic": "87"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://turing-writingassistance.edge.microsoft.com",
+			"key": "insight.code.2xx",
+			"description": "Percentage of responses with status code 2xx",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://turing-writingassistance.edge.microsoft.com",
+			"key": "insight.endpoint.ctype.text/plain",
+			"description": "Percentage of endpoints with content type text/plain",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://turing-writingassistance.edge.microsoft.com",
+			"key": "insight.endpoint.method.POST",
+			"description": "Percentage of endpoints with method POST",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://turing-writingassistance.edge.microsoft.com",
+			"key": "insight.endpoint.total",
+			"description": "Count of total endpoints",
+			"statistic": "1"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://turing-writingassistance.edge.microsoft.com",
+			"key": "insight.response.slow",
+			"description": "Percentage of slow responses",
+			"statistic": "100"
+		}
+	],
+	"site":[ 
+		{
+			"@name": "http://127.0.0.1:5050",
+			"@host": "127.0.0.1",
+			"@port": "5050",
+			"@ssl": "false",
+			"alerts": [ 
+				{
+					"pluginid": "40018",
+					"alertRef": "40018",
+					"alert": "SQL Injection",
+					"name": "SQL Injection",
+					"riskcode": "3",
+					"confidence": "1",
+					"riskdesc": "High (Low)",
+					"desc": "<p>SQL injection may be possible.</p>",
+					"instances":[ 
+						{
+							"id": "200",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(password,username)",
+							"method": "POST",
+							"param": "username",
+							"attack": "'",
+							"evidence": "HTTP/1.1 500 INTERNAL SERVER ERROR",
+							"otherinfo": ""
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>Do not trust client side input, even if there is client side validation in place.</p><p>In general, type check all data on the server side.</p><p>If the application uses JDBC, use PreparedStatement or CallableStatement, with parameters passed by '?'</p><p>If the application uses ASP, use ADO Command Objects with strong type checking and parameterized queries.</p><p>If database Stored Procedures can be used, use them.</p><p>Do *not* concatenate strings into queries in the stored procedure, or use 'exec', 'exec immediate', or equivalent functionality!</p><p>Do not create dynamic SQL queries using simple string concatenation.</p><p>Escape all data received from the client.</p><p>Apply an 'allow list' of allowed characters, or a 'deny list' of disallowed characters in user input.</p><p>Apply the principle of least privilege by using the least privileged database user possible.</p><p>In particular, avoid using the 'sa' or 'db-owner' database users. This does not eliminate SQL injection, but minimizes its impact.</p><p>Grant the minimum database access that is necessary for the application.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html</p>",
+					"cweid": "89",
+					"wascid": "19",
+					"sourceid": "1440"
+				},
+				{
+					"pluginid": "10202",
+					"alertRef": "10202",
+					"alert": "Absence of Anti-CSRF Tokens",
+					"name": "Absence of Anti-CSRF Tokens",
+					"riskcode": "2",
+					"confidence": "1",
+					"riskdesc": "Medium (Low)",
+					"desc": "<p>No Anti-CSRF tokens were found in a HTML submission form.</p><p>A cross-site request forgery is an attack that involves forcing a victim to send an HTTP request to a target destination without their knowledge or intent in order to perform an action as the victim. The underlying cause is application functionality using predictable URL/form actions in a repeatable way. The nature of the attack is that CSRF exploits the trust that a web site has for a user. By contrast, cross-site scripting (XSS) exploits the trust that a user has for a web site. Like XSS, CSRF attacks are not necessarily cross-site, but they can be. Cross-site request forgery is also known as CSRF, XSRF, one-click attack, session riding, confused deputy, and sea surf.</p><p></p><p>CSRF attacks are effective in a number of situations, including:</p><p>    * The victim has an active session on the target site.</p><p>    * The victim is authenticated via HTTP auth on the target site.</p><p>    * The victim is on the same local network as the target site.</p><p></p><p>CSRF has primarily been used to perform an action against a target site using the victim's privileges, but recent techniques have been discovered to disclose information by gaining access to the response. The risk of information disclosure is dramatically increased when the target site is vulnerable to XSS, because XSS can be used as a platform for CSRF, allowing the attack to operate within the bounds of the same-origin policy.</p>",
+					"instances":[ 
+						{
+							"id": "28",
+							"uri": "http://127.0.0.1:5050/customer",
+							"nodeName": "http:\/\/127.0.0.1:5050\/customer",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<form method=\"post\" action=\"/order\">",
+							"otherinfo": "No known Anti-CSRF token [anticsrf, CSRFToken, __RequestVerificationToken, csrfmiddlewaretoken, authenticity_token, OWASP_CSRFTOKEN, anoncsrf, csrf_token, _csrf, _csrfSecret, __csrf_magic, CSRF, _token, _csrf_token, _csrfToken] was found in the following HTML form: [Form 1: \"delivery_note\" \"qty_1\" \"qty_2\" \"qty_3\" \"restaurant_id\" ]."
+						},
+						{
+							"id": "35",
+							"uri": "http://127.0.0.1:5050/customer?restaurant=1",
+							"nodeName": "http:\/\/127.0.0.1:5050\/customer (restaurant)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<form method=\"post\" action=\"/order\">",
+							"otherinfo": "No known Anti-CSRF token [anticsrf, CSRFToken, __RequestVerificationToken, csrfmiddlewaretoken, authenticity_token, OWASP_CSRFTOKEN, anoncsrf, csrf_token, _csrf, _csrfSecret, __csrf_magic, CSRF, _token, _csrf_token, _csrfToken] was found in the following HTML form: [Form 1: \"delivery_note\" \"qty_1\" \"qty_2\" \"qty_3\" \"restaurant_id\" ]."
+						},
+						{
+							"id": "7",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<form method=\"post\">",
+							"otherinfo": "No known Anti-CSRF token [anticsrf, CSRFToken, __RequestVerificationToken, csrfmiddlewaretoken, authenticity_token, OWASP_CSRFTOKEN, anoncsrf, csrf_token, _csrf, _csrfSecret, __csrf_magic, CSRF, _token, _csrf_token, _csrfToken] was found in the following HTML form: [Form 1: \"password\" \"username\" ]."
+						},
+						{
+							"id": "101",
+							"uri": "http://127.0.0.1:5050/register",
+							"nodeName": "http:\/\/127.0.0.1:5050\/register",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<form method=\"post\">",
+							"otherinfo": "No known Anti-CSRF token [anticsrf, CSRFToken, __RequestVerificationToken, csrfmiddlewaretoken, authenticity_token, OWASP_CSRFTOKEN, anoncsrf, csrf_token, _csrf, _csrfSecret, __csrf_magic, CSRF, _token, _csrf_token, _csrfToken] was found in the following HTML form: [Form 1: \"full_name\" \"password\" \"phone\" \"username\" ]."
+						},
+						{
+							"id": "77",
+							"uri": "http://127.0.0.1:5050/restaurant",
+							"nodeName": "http:\/\/127.0.0.1:5050\/restaurant",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<form method=\"post\" action=\"/order/4/status\">",
+							"otherinfo": "No known Anti-CSRF token [anticsrf, CSRFToken, __RequestVerificationToken, csrfmiddlewaretoken, authenticity_token, OWASP_CSRFTOKEN, anoncsrf, csrf_token, _csrf, _csrfSecret, __csrf_magic, CSRF, _token, _csrf_token, _csrfToken] was found in the following HTML form: [Form 1: \"\" ]."
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Phase: Architecture and Design</p><p>Use a vetted library or framework that does not allow this weakness to occur or provides constructs that make this weakness easier to avoid.</p><p>For example, use anti-CSRF packages such as the OWASP CSRFGuard.</p><p></p><p>Phase: Implementation</p><p>Ensure that your application is free of cross-site scripting issues, because most CSRF defenses can be bypassed using attacker-controlled script.</p><p></p><p>Phase: Architecture and Design</p><p>Generate a unique nonce for each form, place the nonce into the form, and verify the nonce upon receipt of the form. Be sure that the nonce is not predictable (CWE-330).</p><p>Note that this can be bypassed using XSS.</p><p></p><p>Identify especially dangerous operations. When the user performs a dangerous operation, send a separate confirmation request to ensure that the user intended to perform that operation.</p><p>Note that this can be bypassed using XSS.</p><p></p><p>Use the ESAPI Session Management control.</p><p>This control includes a component for CSRF.</p><p></p><p>Do not use the GET method for any request that triggers a state change.</p><p></p><p>Phase: Implementation</p><p>Check the HTTP Referer header to see if the request originated from an expected page. This could break legitimate functionality, because users or proxies may have disabled sending the Referer for privacy reasons.</p>",
+					"otherinfo": "<p>No known Anti-CSRF token [anticsrf, CSRFToken, __RequestVerificationToken, csrfmiddlewaretoken, authenticity_token, OWASP_CSRFTOKEN, anoncsrf, csrf_token, _csrf, _csrfSecret, __csrf_magic, CSRF, _token, _csrf_token, _csrfToken] was found in the following HTML form: [Form 1: \"delivery_note\" \"qty_1\" \"qty_2\" \"qty_3\" \"restaurant_id\" ].</p>",
+					"reference": "<p>https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html</p><p>https://cwe.mitre.org/data/definitions/352.html</p>",
+					"cweid": "352",
+					"wascid": "9",
+					"sourceid": "14"
+				},
+				{
+					"pluginid": "10055",
+					"alertRef": "10055-13",
+					"alert": "CSP: Failure to Define Directive with No Fallback",
+					"name": "CSP: Failure to Define Directive with No Fallback",
+					"riskcode": "2",
+					"confidence": "3",
+					"riskdesc": "Medium (High)",
+					"desc": "<p>The Content Security Policy fails to define one of the directives that has no fallback. Missing/excluding them is the same as allowing anything.</p>",
+					"instances":[ 
+						{
+							"id": "202",
+							"uri": "http://127.0.0.1:5050/",
+							"nodeName": "http:\/\/127.0.0.1:5050\/",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+							"otherinfo": "The directive(s): form-action, base-uri is/are among the directives that do not fallback to default-src."
+						},
+						{
+							"id": "201",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+							"otherinfo": "The directive(s): form-action, base-uri is/are among the directives that do not fallback to default-src."
+						},
+						{
+							"id": "208",
+							"uri": "http://127.0.0.1:5050/register",
+							"nodeName": "http:\/\/127.0.0.1:5050\/register",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+							"otherinfo": "The directive(s): form-action, base-uri is/are among the directives that do not fallback to default-src."
+						},
+						{
+							"id": "221",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(csrf_token,password,username)",
+							"method": "POST",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+							"otherinfo": "The directive(s): form-action, base-uri is/are among the directives that do not fallback to default-src."
+						},
+						{
+							"id": "211",
+							"uri": "http://127.0.0.1:5050/register",
+							"nodeName": "http:\/\/127.0.0.1:5050\/register ()(address,csrf_token,full_name,password,phone,username)",
+							"method": "POST",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+							"otherinfo": "The directive(s): form-action, base-uri is/are among the directives that do not fallback to default-src."
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is properly configured to set the Content-Security-Policy header.</p>",
+					"otherinfo": "<p>The directive(s): form-action, base-uri is/are among the directives that do not fallback to default-src.</p>",
+					"reference": "<p>https://www.w3.org/TR/CSP/</p><p>https://caniuse.com/#search=content+security+policy</p><p>https://content-security-policy.com/</p><p>https://github.com/HtmlUnit/htmlunit-csp</p><p>https://web.dev/articles/csp#resource-options</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "3370"
+				},
+				{
+					"pluginid": "10055",
+					"alertRef": "10055-6",
+					"alert": "CSP: style-src unsafe-inline",
+					"name": "CSP: style-src unsafe-inline",
+					"riskcode": "2",
+					"confidence": "3",
+					"riskdesc": "Medium (High)",
+					"desc": "<p>Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks. Including (but not limited to) Cross Site Scripting (XSS), and data injection attacks. These attacks are used for everything from data theft to site defacement or distribution of malware. CSP provides a set of standard HTTP headers that allow website owners to declare approved sources of content that browsers should be allowed to load on that page \u2014 covered types are JavaScript, CSS, HTML frames, fonts, images and embeddable objects such as Java applets, ActiveX, audio and video files.</p>",
+					"instances":[ 
+						{
+							"id": "204",
+							"uri": "http://127.0.0.1:5050/",
+							"nodeName": "http:\/\/127.0.0.1:5050\/",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+							"otherinfo": "style-src includes unsafe-inline."
+						},
+						{
+							"id": "203",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+							"otherinfo": "style-src includes unsafe-inline."
+						},
+						{
+							"id": "209",
+							"uri": "http://127.0.0.1:5050/register",
+							"nodeName": "http:\/\/127.0.0.1:5050\/register",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+							"otherinfo": "style-src includes unsafe-inline."
+						},
+						{
+							"id": "223",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(csrf_token,password,username)",
+							"method": "POST",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+							"otherinfo": "style-src includes unsafe-inline."
+						},
+						{
+							"id": "214",
+							"uri": "http://127.0.0.1:5050/register",
+							"nodeName": "http:\/\/127.0.0.1:5050\/register ()(address,csrf_token,full_name,password,phone,username)",
+							"method": "POST",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+							"otherinfo": "style-src includes unsafe-inline."
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is properly configured to set the Content-Security-Policy header.</p>",
+					"otherinfo": "<p>style-src includes unsafe-inline.</p>",
+					"reference": "<p>https://www.w3.org/TR/CSP/</p><p>https://caniuse.com/#search=content+security+policy</p><p>https://content-security-policy.com/</p><p>https://github.com/HtmlUnit/htmlunit-csp</p><p>https://web.dev/articles/csp#resource-options</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "3370"
+				},
+				{
+					"pluginid": "10038",
+					"alertRef": "10038-1",
+					"alert": "Content Security Policy (CSP) Header Not Set",
+					"name": "Content Security Policy (CSP) Header Not Set",
+					"riskcode": "2",
+					"confidence": "3",
+					"riskdesc": "Medium (High)",
+					"desc": "<p>Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks, including Cross Site Scripting (XSS) and data injection attacks. These attacks are used for everything from data theft to site defacement or distribution of malware. CSP provides a set of standard HTTP headers that allow website owners to declare approved sources of content that browsers should be allowed to load on that page \u2014 covered types are JavaScript, CSS, HTML frames, fonts, images and embeddable objects such as Java applets, ActiveX, audio and video files.</p>",
+					"instances":[ 
+						{
+							"id": "27",
+							"uri": "http://127.0.0.1:5050/customer",
+							"nodeName": "http:\/\/127.0.0.1:5050\/customer",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "34",
+							"uri": "http://127.0.0.1:5050/customer?restaurant=1",
+							"nodeName": "http:\/\/127.0.0.1:5050\/customer (restaurant)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "4",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "100",
+							"uri": "http://127.0.0.1:5050/register",
+							"nodeName": "http:\/\/127.0.0.1:5050\/register",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "76",
+							"uri": "http://127.0.0.1:5050/restaurant",
+							"nodeName": "http:\/\/127.0.0.1:5050\/restaurant",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to set the Content-Security-Policy header.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP</p><p>https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html</p><p>https://www.w3.org/TR/CSP/</p><p>https://w3c.github.io/webappsec-csp/</p><p>https://web.dev/articles/csp</p><p>https://caniuse.com/#feat=contentsecuritypolicy</p><p>https://content-security-policy.com/</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "14"
+				},
+				{
+					"pluginid": "10020",
+					"alertRef": "10020-1",
+					"alert": "Missing Anti-clickjacking Header",
+					"name": "Missing Anti-clickjacking Header",
+					"riskcode": "2",
+					"confidence": "2",
+					"riskdesc": "Medium (Medium)",
+					"desc": "<p>The response does not protect against 'ClickJacking' attacks. It should include either Content-Security-Policy with 'frame-ancestors' directive or X-Frame-Options.</p>",
+					"instances":[ 
+						{
+							"id": "26",
+							"uri": "http://127.0.0.1:5050/customer",
+							"nodeName": "http:\/\/127.0.0.1:5050\/customer",
+							"method": "GET",
+							"param": "x-frame-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "32",
+							"uri": "http://127.0.0.1:5050/customer?restaurant=1",
+							"nodeName": "http:\/\/127.0.0.1:5050\/customer (restaurant)",
+							"method": "GET",
+							"param": "x-frame-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "2",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login",
+							"method": "GET",
+							"param": "x-frame-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "99",
+							"uri": "http://127.0.0.1:5050/register",
+							"nodeName": "http:\/\/127.0.0.1:5050\/register",
+							"method": "GET",
+							"param": "x-frame-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "75",
+							"uri": "http://127.0.0.1:5050/restaurant",
+							"nodeName": "http:\/\/127.0.0.1:5050\/restaurant",
+							"method": "GET",
+							"param": "x-frame-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Modern Web browsers support the Content-Security-Policy and X-Frame-Options HTTP headers. Ensure one of them is set on all web pages returned by your site/app.</p><p>If you expect the page to be framed only by pages on your server (e.g. it's part of a FRAMESET) then you'll want to use SAMEORIGIN, otherwise if you never expect the page to be framed, you should use DENY. Alternatively consider implementing Content Security Policy's \"frame-ancestors\" directive.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Frame-Options</p>",
+					"cweid": "1021",
+					"wascid": "15",
+					"sourceid": "14"
+				},
+				{
+					"pluginid": "90022",
+					"alertRef": "90022",
+					"alert": "Application Error Disclosure",
+					"name": "Application Error Disclosure",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>This page contains an error/warning message that may disclose sensitive information like the location of the file that produced the unhandled exception. This information can be used to launch further attacks against the web application. The alert could be a false positive if the error message is found inside a documentation page.</p>",
+					"instances":[ 
+						{
+							"id": "392",
+							"uri": "http://127.0.0.1:5050/mfa/enroll",
+							"nodeName": "http:\/\/127.0.0.1:5050\/mfa\/enroll ()(code,csrf_token)",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "HTTP/1.1 500 INTERNAL SERVER ERROR",
+							"otherinfo": ""
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>Review the source code of this page. Implement custom error pages. Consider implementing a mechanism to provide a unique error reference/identifier to the client (browser) while logging the details on the server side and not exposing them to the user.</p>",
+					"otherinfo": "",
+					"reference": "",
+					"cweid": "550",
+					"wascid": "13",
+					"sourceid": "3420"
+				},
+				{
+					"pluginid": "10054",
+					"alertRef": "10054-1",
+					"alert": "Cookie without SameSite Attribute",
+					"name": "Cookie without SameSite Attribute",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>A cookie has been set without the SameSite attribute, which means that the cookie can be sent as a result of a 'cross-site' request. The SameSite attribute is an effective counter measure to cross-site request forgery, cross-site script inclusion, and timing attacks.</p>",
+					"instances":[ 
+						{
+							"id": "20",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(password,username)",
+							"method": "POST",
+							"param": "session",
+							"attack": "",
+							"evidence": "Set-Cookie: session",
+							"otherinfo": ""
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>Ensure that the SameSite attribute is set to either 'lax' or ideally 'strict' for all cookies.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-cookie-same-site</p>",
+					"cweid": "1275",
+					"wascid": "13",
+					"sourceid": "12"
+				},
+				{
+					"pluginid": "10023",
+					"alertRef": "10023",
+					"alert": "Information Disclosure - Debug Error Messages",
+					"name": "Information Disclosure - Debug Error Messages",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>The response appeared to contain common error messages returned by platforms such as ASP.NET, and Web-servers such as IIS and Apache. You can configure the list of common debug messages.</p>",
+					"instances":[ 
+						{
+							"id": "395",
+							"uri": "http://127.0.0.1:5050/mfa/enroll",
+							"nodeName": "http:\/\/127.0.0.1:5050\/mfa\/enroll ()(code,csrf_token)",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "Internal Server Error",
+							"otherinfo": ""
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>Disable debugging messages before pushing to production.</p>",
+					"otherinfo": "",
+					"reference": "",
+					"cweid": "1295",
+					"wascid": "13",
+					"sourceid": "3420"
+				},
+				{
+					"pluginid": "10036",
+					"alertRef": "10036-2",
+					"alert": "Server Leaks Version Information via \"Server\" HTTP Response Header Field",
+					"name": "Server Leaks Version Information via \"Server\" HTTP Response Header Field",
+					"riskcode": "1",
+					"confidence": "3",
+					"riskdesc": "Low (High)",
+					"desc": "<p>The web/application server is leaking version information via the \"Server\" HTTP response header. Access to such information may facilitate attackers identifying other vulnerabilities your web/application server is subject to.</p>",
+					"instances":[ 
+						{
+							"id": "3",
+							"uri": "http://127.0.0.1:5050/",
+							"nodeName": "http:\/\/127.0.0.1:5050\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Werkzeug/3.1.9 Python/3.14.7",
+							"otherinfo": ""
+						},
+						{
+							"id": "29",
+							"uri": "http://127.0.0.1:5050/customer",
+							"nodeName": "http:\/\/127.0.0.1:5050\/customer",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Werkzeug/3.1.9 Python/3.14.7",
+							"otherinfo": ""
+						},
+						{
+							"id": "10",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Werkzeug/3.1.9 Python/3.14.7",
+							"otherinfo": ""
+						},
+						{
+							"id": "22",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(password,username)",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "Werkzeug/3.1.9 Python/3.14.7",
+							"otherinfo": ""
+						},
+						{
+							"id": "33",
+							"uri": "http://127.0.0.1:5050/order",
+							"nodeName": "http:\/\/127.0.0.1:5050\/order ()(delivery_note,qty_1,qty_2,qty_3,restaurant_id)",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "Werkzeug/3.1.9 Python/3.14.7",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to suppress the \"Server\" header or provide generic details.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://httpd.apache.org/docs/current/mod/core.html#servertokens</p><p>https://learn.microsoft.com/en-us/previous-versions/msp-n-p/ff648552(v=pandp.10)</p><p>https://www.troyhunt.com/shhh-dont-let-your-response-headers/</p>",
+					"cweid": "497",
+					"wascid": "13",
+					"sourceid": "5"
+				},
+				{
+					"pluginid": "10021",
+					"alertRef": "10021",
+					"alert": "X-Content-Type-Options Header Missing",
+					"name": "X-Content-Type-Options Header Missing",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>The Anti-MIME-Sniffing header X-Content-Type-Options was not set to 'nosniff'. This allows older versions of Internet Explorer and Chrome to perform MIME-sniffing on the response body, potentially causing the response body to be interpreted and displayed as a content type other than the declared content type. Current (early 2014) and legacy versions of Firefox will use the declared content type (if one is set), rather than performing MIME-sniffing.</p>",
+					"instances":[ 
+						{
+							"id": "30",
+							"uri": "http://127.0.0.1:5050/customer",
+							"nodeName": "http:\/\/127.0.0.1:5050\/customer",
+							"method": "GET",
+							"param": "x-content-type-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "This issue still applies to error type pages (401, 403, 500, etc.) as those pages are often still affected by injection issues, in which case there is still concern for browsers sniffing pages away from their actual content type.\nAt \"High\" threshold this scan rule will not alert on client or server error responses."
+						},
+						{
+							"id": "37",
+							"uri": "http://127.0.0.1:5050/customer?restaurant=1",
+							"nodeName": "http:\/\/127.0.0.1:5050\/customer (restaurant)",
+							"method": "GET",
+							"param": "x-content-type-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "This issue still applies to error type pages (401, 403, 500, etc.) as those pages are often still affected by injection issues, in which case there is still concern for browsers sniffing pages away from their actual content type.\nAt \"High\" threshold this scan rule will not alert on client or server error responses."
+						},
+						{
+							"id": "13",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login",
+							"method": "GET",
+							"param": "x-content-type-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "This issue still applies to error type pages (401, 403, 500, etc.) as those pages are often still affected by injection issues, in which case there is still concern for browsers sniffing pages away from their actual content type.\nAt \"High\" threshold this scan rule will not alert on client or server error responses."
+						},
+						{
+							"id": "103",
+							"uri": "http://127.0.0.1:5050/register",
+							"nodeName": "http:\/\/127.0.0.1:5050\/register",
+							"method": "GET",
+							"param": "x-content-type-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "This issue still applies to error type pages (401, 403, 500, etc.) as those pages are often still affected by injection issues, in which case there is still concern for browsers sniffing pages away from their actual content type.\nAt \"High\" threshold this scan rule will not alert on client or server error responses."
+						},
+						{
+							"id": "79",
+							"uri": "http://127.0.0.1:5050/restaurant",
+							"nodeName": "http:\/\/127.0.0.1:5050\/restaurant",
+							"method": "GET",
+							"param": "x-content-type-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "This issue still applies to error type pages (401, 403, 500, etc.) as those pages are often still affected by injection issues, in which case there is still concern for browsers sniffing pages away from their actual content type.\nAt \"High\" threshold this scan rule will not alert on client or server error responses."
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that the application/web server sets the Content-Type header appropriately, and that it sets the X-Content-Type-Options header to 'nosniff' for all web pages.</p><p>If possible, ensure that the end user uses a standards-compliant and modern web browser that does not perform MIME-sniffing at all, or that can be directed by the web application/web server to not perform MIME-sniffing.</p>",
+					"otherinfo": "<p>This issue still applies to error type pages (401, 403, 500, etc.) as those pages are often still affected by injection issues, in which case there is still concern for browsers sniffing pages away from their actual content type.</p><p>At \"High\" threshold this scan rule will not alert on client or server error responses.</p>",
+					"reference": "<p>https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/compatibility/gg622941(v=vs.85)</p><p>https://owasp.org/www-community/Security_Headers</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "14"
+				},
+				{
+					"pluginid": "10111",
+					"alertRef": "10111",
+					"alert": "Authentication Request Identified",
+					"name": "Authentication Request Identified",
+					"riskcode": "0",
+					"confidence": "3",
+					"riskdesc": "Informational (High)",
+					"desc": "<p>The given request has been identified as an authentication request. The 'Other Info' field contains a set of key=value lines which identify any relevant fields. If the request is in a context which has an Authentication Method set to \"Auto-Detect\" then this rule will change the authentication to match the request identified.</p>",
+					"instances":[ 
+						{
+							"id": "227",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(csrf_token,password,username)",
+							"method": "POST",
+							"param": "username",
+							"attack": "",
+							"evidence": "password",
+							"otherinfo": "userParam=username\nuserValue=naidu\npasswordParam=password\nreferer=http://127.0.0.1:5050/login"
+						},
+						{
+							"id": "24",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(password,username)",
+							"method": "POST",
+							"param": "username",
+							"attack": "",
+							"evidence": "password",
+							"otherinfo": "userParam=username\nuserValue=kabir\npasswordParam=password\nreferer=http://127.0.0.1:5050/login"
+						}
+					],
+					"count": "2",
+					"systemic": false,
+					"solution": "<p>This is an informational alert rather than a vulnerability and so there is nothing to fix.</p>",
+					"otherinfo": "<p>userParam=username</p><p>userValue=naidu</p><p>passwordParam=password</p><p>referer=http://127.0.0.1:5050/login</p>",
+					"reference": "<p>https://www.zaproxy.org/docs/desktop/addons/authentication-helper/auth-req-id/</p>",
+					"cweid": "-1",
+					"wascid": "-1",
+					"sourceid": "3376"
+				},
+				{
+					"pluginid": "10112",
+					"alertRef": "10112",
+					"alert": "Session Management Response Identified",
+					"name": "Session Management Response Identified",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The given response has been identified as containing a session management token. The 'Other Info' field contains a set of header tokens that can be used in the Header Based Session Management Method. If the request is in a context which has a Session Management Method set to \"Auto-Detect\" then this rule will change the session management to use the tokens identified.</p>",
+					"instances":[ 
+						{
+							"id": "226",
+							"uri": "http://127.0.0.1:5050/",
+							"nodeName": "http:\/\/127.0.0.1:5050\/",
+							"method": "GET",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "233",
+							"uri": "http://127.0.0.1:5050/customer",
+							"nodeName": "http:\/\/127.0.0.1:5050\/customer",
+							"method": "GET",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "237",
+							"uri": "http://127.0.0.1:5050/customer?restaurant=1",
+							"nodeName": "http:\/\/127.0.0.1:5050\/customer (restaurant)",
+							"method": "GET",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "207",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login",
+							"method": "GET",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "391",
+							"uri": "http://127.0.0.1:5050/mfa/enroll",
+							"nodeName": "http:\/\/127.0.0.1:5050\/mfa\/enroll",
+							"method": "GET",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "293",
+							"uri": "http://127.0.0.1:5050/restaurant",
+							"nodeName": "http:\/\/127.0.0.1:5050\/restaurant",
+							"method": "GET",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "340",
+							"uri": "http://127.0.0.1:5050/rider",
+							"nodeName": "http:\/\/127.0.0.1:5050\/rider",
+							"method": "GET",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "228",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(csrf_token,password,username)",
+							"method": "POST",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "25",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(password,username)",
+							"method": "POST",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "245",
+							"uri": "http://127.0.0.1:5050/order",
+							"nodeName": "http:\/\/127.0.0.1:5050\/order ()(csrf_token,delivery_note,qty_1,qty_2,qty_3,restaurant_id)",
+							"method": "POST",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "257",
+							"uri": "http://127.0.0.1:5050/order",
+							"nodeName": "http:\/\/127.0.0.1:5050\/order ()(csrf_token,delivery_note,qty_4,qty_5,qty_6,restaurant_id)",
+							"method": "POST",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "270",
+							"uri": "http://127.0.0.1:5050/order",
+							"nodeName": "http:\/\/127.0.0.1:5050\/order ()(csrf_token,delivery_note,qty_7,qty_8,qty_9,restaurant_id)",
+							"method": "POST",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "301",
+							"uri": "http://127.0.0.1:5050/order/4/status",
+							"nodeName": "http:\/\/127.0.0.1:5050\/order\/4\/status ()(csrf_token,status)",
+							"method": "POST",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "229",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(csrf_token,password,username)",
+							"method": "POST",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "23",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(password,username)",
+							"method": "POST",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						},
+						{
+							"id": "302",
+							"uri": "http://127.0.0.1:5050/order/4/status",
+							"nodeName": "http:\/\/127.0.0.1:5050\/order\/4\/status ()(csrf_token,status)",
+							"method": "POST",
+							"param": "session",
+							"attack": "",
+							"evidence": "session",
+							"otherinfo": "cookie:session"
+						}
+					],
+					"count": "16",
+					"systemic": false,
+					"solution": "<p>This is an informational alert rather than a vulnerability and so there is nothing to fix.</p>",
+					"otherinfo": "<p>cookie:session</p>",
+					"reference": "<p>https://www.zaproxy.org/docs/desktop/addons/authentication-helper/session-mgmt-id/</p>",
+					"cweid": "-1",
+					"wascid": "-1",
+					"sourceid": "3377"
+				},
+				{
+					"pluginid": "10031",
+					"alertRef": "10031",
+					"alert": "User Controllable HTML Element Attribute (Potential XSS)",
+					"name": "User Controllable HTML Element Attribute (Potential XSS)",
+					"riskcode": "0",
+					"confidence": "1",
+					"riskdesc": "Informational (Low)",
+					"desc": "<p>This check looks at user-supplied input in query string parameters and POST data to identify where certain HTML attribute values might be controlled. This provides hot-spot detection for XSS (cross-site scripting) that will require further review by a security analyst to determine exploitability.</p>",
+					"instances":[ 
+						{
+							"id": "376",
+							"uri": "http://127.0.0.1:5050/login",
+							"nodeName": "http:\/\/127.0.0.1:5050\/login ()(csrf_token,password,username)",
+							"method": "POST",
+							"param": "csrf_token",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "User-controlled HTML attribute values were found. Try injecting special characters to see if XSS might be possible. The page at the following URL:\n\nhttp://127.0.0.1:5050/login\n\nappears to include user input in:\na(n) [input] tag [value] attribute\n\nThe user input found was:\ncsrf_token=441861fcfb22e8d7dfa71b90affd838b\n\nThe user-controlled value was:\n441861fcfb22e8d7dfa71b90affd838b"
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>Validate all input and sanitize output it before writing to any HTML attributes.</p>",
+					"otherinfo": "<p>User-controlled HTML attribute values were found. Try injecting special characters to see if XSS might be possible. The page at the following URL:</p><p></p><p>http://127.0.0.1:5050/login</p><p></p><p>appears to include user input in:</p><p>a(n) [input] tag [value] attribute</p><p></p><p>The user input found was:</p><p>csrf_token=441861fcfb22e8d7dfa71b90affd838b</p><p></p><p>The user-controlled value was:</p><p>441861fcfb22e8d7dfa71b90affd838b</p>",
+					"reference": "<p>https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html</p>",
+					"cweid": "20",
+					"wascid": "20",
+					"sourceid": "3415"
+				}
+			]
+		}
+	],
+	"sequences":[
+	]
+
+}
